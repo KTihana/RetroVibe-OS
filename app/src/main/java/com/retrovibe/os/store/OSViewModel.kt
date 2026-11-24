@@ -71,7 +71,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             WindowState("explorer", "C:\\RETROVIBE\\", x = 14f, y = 40f, width = 336f, height = 420f),
             WindowState("gallery", "My Pictures (Permitted)", x = 14f, y = 40f, width = 336f, height = 430f),
             WindowState("music", "Playlist.wpl", x = 18f, y = 80f, width = 324f, height = 340f),
-            WindowState("calendar", "Calendar", x = 16f, y = 50f, width = 332f, height = 430f),
+            WindowState("calendar", "Calendar", x = 16f, y = 50f, width = 332f, height = 382f),
             WindowState("reminders", "Reminders.exe", x = 18f, y = 60f, width = 326f, height = 390f),
             WindowState("habits", "To do list", x = 22f, y = 90f, width = 300f, height = 320f),
             WindowState("paint", "untitled - Paint", isMaximized = true, x = 8f, y = 24f, width = 350f, height = 500f),

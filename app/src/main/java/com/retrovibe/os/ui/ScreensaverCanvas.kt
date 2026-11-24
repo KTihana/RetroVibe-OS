@@ -474,17 +474,16 @@ fun ScreensaverCanvas(
                     val shade = distShade * sideMul
 
                     val bandH = wallH / brickRows
-                    val isStone = hitTile == 2
                     for (b in 0 until brickRows) {
                         val by = wallTop + b * bandH
                         if (by + bandH < 0f || by > size.height) continue
                         val staggeredU = (wallX * 2f + (if (b % 2 == 0) 0f else 0.5f)) % 1f
                         val isVerticalMortar = staggeredU < 0.08f
                         val brickTint = if (((b * 3 + (wallX * 4).toInt()) % 3) == 0) 0.90f else 1.0f
-                        val baseCol = when {
-                            isVerticalMortar -> Color((0xC8 * shade).toInt(), (0xB8 * shade).toInt(), (0xA4 * shade).toInt())
-                            isStone -> Color((0x8A * shade * brickTint).toInt(), (0x98 * shade * brickTint).toInt(), (0xB4 * shade * brickTint).toInt())
-                            else -> Color((0xC4 * shade * brickTint).toInt(), (0x46 * shade * brickTint).toInt(), (0x34 * shade * brickTint).toInt())
+                        val baseCol = if (isVerticalMortar) {
+                            Color((0xC8 * shade).toInt(), (0xB8 * shade).toInt(), (0xA4 * shade).toInt())
+                        } else {
+                            Color((0xC4 * shade * brickTint).toInt(), (0x46 * shade * brickTint).toInt(), (0x34 * shade * brickTint).toInt())
                         }
                         drawRect(baseCol, Offset(i * colW, by), Size(colW + 1f, bandH + 0.5f))
                         val mortarCol = Color((0xB4 * shade).toInt(), (0xA4 * shade).toInt(), (0x92 * shade).toInt())

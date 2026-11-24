@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -159,6 +160,7 @@ fun RetroWindow(
     val theme = RetroThemes.of(vm.themeId)
     val isActive = vm.activeWindowId == win.id
     val density = LocalDensity.current
+    val focusManager = LocalFocusManager.current
 
     val wDp = if (win.isMaximized) boundsWidthDp - 4f else win.width.coerceAtMost(boundsWidthDp - 8f)
     val hDp = if (win.isMaximized) boundsHeightDp - 4f else win.height.coerceAtMost(boundsHeightDp - 8f)
@@ -181,6 +183,13 @@ fun RetroWindow(
             .background(theme.windowBg)
             .win98Bevel(true, theme.borderLight, theme.borderDark, theme.borderDeep)
             .padding(2.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                focusManager.clearFocus()
+                if (vm.activeWindowId != win.id) vm.focusWindow(win.id)
+            }
             .pointerInput(win.id) {
                 awaitPointerEventScope {
                     while (true) {

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="156" viewBox="0 0 820 156">
+  <defs>
+    <linearGradient id="bar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2E4C89"/>
+      <stop offset="100%" stop-color="#D99AA8"/>
+    </linearGradient>
+    <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="2" fill="#000000" fill-opacity="0.06"/>
+    </pattern>
+  </defs>
+  <rect width="820" height="156" fill="#789BC2"/>
+  <rect width="820" height="156" fill="url(#scan)"/>
+
+  <g transform="translate(26, 12)">
+    <rect x="6" y="6" width="768" height="128" fill="#24232B" fill-opacity="0.32"/>
+    <rect width="768" height="128" fill="#ECE6DA"/>
+    <rect width="768" height="2.5" fill="#FFFFFF"/>
+    <rect width="2.5" height="128" fill="#FFFFFF"/>
+    <rect y="125.5" width="768" height="2.5" fill="#24232B"/>
+    <rect x="765.5" width="2.5" height="128" fill="#24232B"/>
+    <rect x="2.5" y="123" width="763" height="2.5" fill="#8C867A"/>
+    <rect x="763" y="2.5" width="2.5" height="123" fill="#8C867A"/>
+
+    <rect x="6" y="6" width="756" height="24" fill="url(#bar)"/>
+    <text x="16" y="22" font-family="'Courier New', Courier, monospace" font-size="13" font-weight="bold" fill="#FFFFFF">C:\RETROVIBE\ABOUT.TXT — Notepad</text>
+
+    <rect x="12" y="36" width="744" height="80" fill="#F8F5EF"/>
+    <rect x="12" y="36" width="744" height="2" fill="#8C867A"/>
+    <rect x="12" y="36" width="2" height="80" fill="#8C867A"/>
+
+    <text x="26" y="61" font-family="'Courier New', Courier, monospace" font-size="13.5" font-weight="bold" fill="#24232B">RetroVibe OS turns your Android phone into a cozy Windows 98 desktop —</text>
+    <text x="26" y="83" font-family="'Courier New', Courier, monospace" font-size="13.5" fill="#24232B">complete with 32x32 pixel art, draggable &amp; resizable windows, CRT scanlines,</text>
+    <text x="26" y="105" font-family="'Courier New', Courier, monospace" font-size="13.5" fill="#24232B">classic 8-bit sounds, two desktop cats (Mindi &amp; Spooks), and everyday mini-apps.</text>
+  </g>
+</svg>

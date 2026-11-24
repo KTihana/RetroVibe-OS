@@ -125,7 +125,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                 null
             }
         }
-        loaded ?: Bitmap.createBitmap(320, 440, Bitmap.Config.ARGB_8888).apply {
+        loaded ?: Bitmap.createBitmap(320, 520, Bitmap.Config.ARGB_8888).apply {
             android.graphics.Canvas(this).drawColor(android.graphics.Color.WHITE)
         }
     }
@@ -931,31 +931,37 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Classic Win98 overlapping FG / BG color swatch box (tap to swap)
             Box(
                 modifier = Modifier
-                    .size(30.dp)
-                    .win98Bevel(sunken = true, bg = Color(0xFFE0E0E0))
+                    .size(34.dp)
+                    .win98Bevel(sunken = true, bg = Color(0xFFDCDCDC))
                     .clickable {
+                        RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
                         val tmp = fgColor
                         fgColor = bgColor
                         bgColor = tmp
                     }
             ) {
+                // Back (BG) swatch
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
-                        .align(Alignment.BottomEnd)
-                        .padding(2.dp)
+                        .offset(x = 13.dp, y = 13.dp)
+                        .size(16.dp)
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFF404040))
+                        .padding(1.5.dp)
                         .background(bgColor)
-                        .border(1.dp, Color.Black)
                 )
+                // Front (FG) swatch overlapping top-left
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
-                        .align(Alignment.TopStart)
-                        .padding(2.dp)
-                        .background(fgColor)
+                        .offset(x = 5.dp, y = 5.dp)
+                        .size(16.dp)
+                        .background(Color.White)
                         .border(1.dp, Color.Black)
+                        .padding(1.5.dp)
+                        .background(fgColor)
                 )
             }
 

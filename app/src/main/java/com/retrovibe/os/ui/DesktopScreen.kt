@@ -23,6 +23,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +68,7 @@ private data class StartMenuEntry(
 fun DesktopScreen(vm: OSViewModel) {
     val theme = RetroThemes.of(vm.themeId)
     val density = LocalDensity.current
+    val focusManager = LocalFocusManager.current
 
     var booted by remember { mutableStateOf(false) }
     var loggedIn by remember { mutableStateOf(false) }
@@ -270,6 +272,7 @@ fun DesktopScreen(vm: OSViewModel) {
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = {
+                                focusManager.clearFocus()
                                 startMenuOpen = false
                                 activeSubmenu = null
                                 selectedIconId = null
@@ -463,8 +466,9 @@ fun DesktopScreen(vm: OSViewModel) {
                 // Interactive Desk Cat (OFF by default, sits on taskbar with gravity)
                 DeskCat(vm = vm, boundsW = boundsW, boundsH = boundsH)
 
-                // Open Application Windows
-                vm.windows.values.filter { it.isOpen && !it.isMinimized }.sortedBy { it.zIndex }.forEach { win ->
+                // Open Application Windows (stable key + ID order so zIndex changes never glitch drag gestures!)
+                vm.windows.values.filter { it.isOpen && !it.isMinimized }.sortedBy { it.id }.forEach { win ->
+                    key(win.id) {
                     val iconName = when {
                         win.id.startsWith("note:") -> "note"
                         win.id == "explorer" -> "computer"
@@ -520,6 +524,7 @@ fun DesktopScreen(vm: OSViewModel) {
                             win.id == "run" -> RunDialogWindow(vm, theme)
                             win.id == "taskmgr" -> TaskManagerWindow(vm, theme)
                         }
+                    }
                     }
                 }
 

@@ -1,65 +1,98 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="170" viewBox="0 0 760 170" shape-rendering="crispEdges">
-  <!-- Outer Win98 Window Frame -->
-  <rect x="0" y="0" width="760" height="170" fill="#000000"/>
-  <rect x="0" y="0" width="758" height="168" fill="#FFFFFF"/>
-  <rect x="2" y="2" width="756" height="166" fill="#808080"/>
-  <rect x="2" y="2" width="754" height="164" fill="#DFDFDF"/>
-  <rect x="4" y="4" width="752" height="162" fill="#C0C0C0"/>
-
-  <!-- Classic Win98 2-Tone Title Bar -->
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="230" viewBox="0 0 820 230">
   <defs>
-    <linearGradient id="win98Title" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#000080"/>
-      <stop offset="100%" stop-color="#1084D0"/>
+    <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2E4C89"/>
+      <stop offset="100%" stop-color="#D99AA8"/>
     </linearGradient>
+    <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="2" fill="#000000" fill-opacity="0.06"/>
+    </pattern>
   </defs>
-  <rect x="7" y="7" width="746" height="28" fill="url(#win98Title)"/>
 
-  <!-- Mini Pixel Window Flag -->
-  <rect x="14" y="13" width="7" height="7" fill="#E04040" stroke="#111111" stroke-width="1"/>
-  <rect x="22" y="13" width="7" height="7" fill="#40B048" stroke="#111111" stroke-width="1"/>
-  <rect x="14" y="21" width="7" height="7" fill="#3070D8" stroke="#111111" stroke-width="1"/>
-  <rect x="22" y="21" width="7" height="7" fill="#F0C830" stroke="#111111" stroke-width="1"/>
+  <!-- Pastel Denim Desktop Wallpaper -->
+  <rect width="820" height="230" fill="#789BC2"/>
+  <rect width="820" height="230" fill="url(#scanlines)"/>
 
-  <!-- Title Bar Text -->
-  <text x="38" y="26" font-family="'Courier New', Courier, monospace" font-size="14" font-weight="bold" fill="#FFFFFF">RetroVibe OS 98 - Welcome.exe</text>
+  <!-- Classic Win98 Outer Window Bevel -->
+  <g transform="translate(26, 18)">
+    <!-- Drop Shadow -->
+    <rect x="6" y="6" width="768" height="190" fill="#24232B" fill-opacity="0.35"/>
+    <!-- Window Body -->
+    <rect width="768" height="190" fill="#ECE6DA"/>
+    <!-- 3D Raised Bevel -->
+    <rect width="768" height="3" fill="#FFFFFF"/>
+    <rect width="3" height="190" fill="#FFFFFF"/>
+    <rect y="187" width="768" height="3" fill="#24232B"/>
+    <rect x="765" width="3" height="190" fill="#24232B"/>
+    <rect x="3" y="184" width="762" height="3" fill="#8C867A"/>
+    <rect x="762" y="3" width="3" height="184" fill="#8C867A"/>
 
-  <!-- Minimize / Maximize / Close Buttons -->
-  <!-- _ -->
-  <rect x="688" y="11" width="18" height="18" fill="#000000"/>
-  <rect x="688" y="11" width="17" height="17" fill="#FFFFFF"/>
-  <rect x="689" y="12" width="16" height="16" fill="#808080"/>
-  <rect x="689" y="12" width="15" height="15" fill="#C0C0C0"/>
-  <rect x="692" y="22" width="8" height="2" fill="#000000"/>
-  <!-- [] -->
-  <rect x="708" y="11" width="18" height="18" fill="#000000"/>
-  <rect x="708" y="11" width="17" height="17" fill="#FFFFFF"/>
-  <rect x="709" y="12" width="16" height="16" fill="#808080"/>
-  <rect x="709" y="12" width="15" height="15" fill="#C0C0C0"/>
-  <rect x="712" y="15" width="9" height="8" fill="none" stroke="#000000" stroke-width="1.5"/>
-  <rect x="712" y="15" width="9" height="2" fill="#000000"/>
-  <!-- X -->
-  <rect x="730" y="11" width="18" height="18" fill="#000000"/>
-  <rect x="730" y="11" width="17" height="17" fill="#FFFFFF"/>
-  <rect x="731" y="12" width="16" height="16" fill="#808080"/>
-  <rect x="731" y="12" width="15" height="15" fill="#C0C0C0"/>
-  <path d="M735 15 L743 23 M743 15 L735 23" stroke="#000000" stroke-width="2"/>
+    <!-- Gradient Title Bar -->
+    <rect x="6" y="6" width="756" height="30" fill="url(#titleGrad)"/>
 
-  <!-- Inner Teal Desktop Panel -->
-  <rect x="12" y="42" width="736" height="114" fill="#FFFFFF"/>
-  <rect x="12" y="42" width="734" height="112" fill="#808080"/>
-  <rect x="14" y="44" width="732" height="110" fill="#008080"/>
+    <!-- Mini 4-pane Pastel Flag Icon -->
+    <g transform="translate(14, 12)">
+      <rect x="0" y="0" width="8" height="8" fill="#F07292" stroke="#101228" stroke-width="1.5"/>
+      <rect x="10" y="1" width="8" height="8" fill="#72D498" stroke="#101228" stroke-width="1.5"/>
+      <rect x="0" y="10" width="8" height="8" fill="#6496DC" stroke="#101228" stroke-width="1.5"/>
+      <rect x="10" y="11" width="8" height="8" fill="#F8D258" stroke="#101228" stroke-width="1.5"/>
+    </g>
 
-  <!-- Headline -->
-  <text x="380" y="92" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="34" font-weight="bold" fill="#000000">RetroVibe OS</text>
-  <text x="378" y="90" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="34" font-weight="bold" fill="#FFFFFF">RetroVibe OS</text>
+    <text x="42" y="26" font-family="'Courier New', Courier, monospace" font-size="14" font-weight="bold" fill="#FFFFFF">C:\RETROVIBE\WELCOME.EXE</text>
 
-  <!-- Subtitle -->
-  <text x="380" y="122" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="14" font-weight="bold" fill="#FFE8F0">A Windows 98 Desktop Experience for Android (Kotlin + Jetpack Compose)</text>
+    <!-- Titlebar Buttons (_, [], X) -->
+    <g transform="translate(692, 11)">
+      <rect width="20" height="20" fill="#ECE6DA" stroke="#24232B" stroke-width="1.5"/>
+      <rect x="1" y="1" width="17" height="2" fill="#FFFFFF"/>
+      <text x="6" y="15" font-family="'Courier New', monospace" font-size="13" font-weight="bold" fill="#24232B">_</text>
 
-  <!-- Bottom Status Strip -->
-  <rect x="14" y="136" width="732" height="18" fill="#C0C0C0"/>
-  <line x1="14" y1="136" x2="746" y2="136" stroke="#FFFFFF" stroke-width="1"/>
-  <text x="24" y="149" font-family="'Courier New', Courier, monospace" font-size="11" fill="#000000">C:\RETROVIBE\  |  Ready</text>
-  <text x="736" y="149" text-anchor="end" font-family="'Courier New', Courier, monospace" font-size="11" fill="#000000">v2.0.0</text>
+      <rect x="23" width="20" height="20" fill="#ECE6DA" stroke="#24232B" stroke-width="1.5"/>
+      <rect x="24" y="1" width="17" height="2" fill="#FFFFFF"/>
+      <rect x="28" y="6" width="10" height="9" fill="none" stroke="#24232B" stroke-width="1.8"/>
+
+      <rect x="46" width="20" height="20" fill="#ECE6DA" stroke="#24232B" stroke-width="1.5"/>
+      <rect x="47" y="1" width="17" height="2" fill="#FFFFFF"/>
+      <text x="51" y="15" font-family="'Courier New', monospace" font-size="14" font-weight="bold" fill="#24232B">×</text>
+    </g>
+
+    <!-- Inner Sunken Cream Panel -->
+    <rect x="14" y="46" width="740" height="130" fill="#F8F5EF"/>
+    <rect x="14" y="46" width="740" height="2" fill="#8C867A"/>
+    <rect x="14" y="46" width="2" height="130" fill="#8C867A"/>
+    <rect x="14" y="174" width="740" height="2" fill="#FFFFFF"/>
+    <rect x="752" y="46" width="2" height="130" fill="#FFFFFF"/>
+
+    <!-- Mini Pixel Floppy Disk Emblem on Left -->
+    <g transform="translate(36, 62)">
+      <rect x="0" y="0" width="84" height="84" rx="4" fill="#6486C8" stroke="#101228" stroke-width="4"/>
+      <rect x="24" y="2" width="38" height="30" fill="#D2DCE6" stroke="#101228" stroke-width="3"/>
+      <rect x="44" y="8" width="12" height="18" fill="#6486C8" stroke="#101228" stroke-width="2.5"/>
+      <rect x="14" y="42" width="56" height="40" fill="#FFF7DC" stroke="#101228" stroke-width="3"/>
+      <rect x="16" y="58" width="52" height="22" fill="#F0728C"/>
+      <!-- Tiny Heart on Floppy -->
+      <rect x="36" y="46" width="5" height="5" fill="#E84874"/>
+      <rect x="43" y="46" width="5" height="5" fill="#E84874"/>
+      <rect x="36" y="49" width="12" height="4" fill="#E84874"/>
+      <rect x="39" y="53" width="6" height="3" fill="#E84874"/>
+    </g>
+
+    <!-- Main Title & Tagline -->
+    <text x="148" y="102" font-family="'Courier New', Courier, monospace" font-size="42" font-weight="bold" fill="#2E4C89" letter-spacing="1">RetroVibe OS</text>
+    <text x="150" y="128" font-family="'Courier New', Courier, monospace" font-size="14" font-weight="bold" fill="#5F5B54">A cozy Windows 98 desktop simulator built natively for Android.</text>
+
+    <!-- Cute Status Chips -->
+    <g transform="translate(150, 142)">
+      <rect width="124" height="22" fill="#F6D6DF" stroke="#24232B" stroke-width="1.5"/>
+      <text x="10" y="15" font-family="'Courier New', monospace" font-size="11" font-weight="bold" fill="#24232B">Kotlin + Compose</text>
+
+      <rect x="132" width="114" height="22" fill="#ECE6DA" stroke="#24232B" stroke-width="1.5"/>
+      <text x="142" y="15" font-family="'Courier New', monospace" font-size="11" font-weight="bold" fill="#24232B">32x32 Pixel Art</text>
+
+      <rect x="254" width="136" height="22" fill="#ECE6DA" stroke="#24232B" stroke-width="1.5"/>
+      <text x="264" y="15" font-family="'Courier New', monospace" font-size="11" font-weight="bold" fill="#24232B">Mindi &amp; Spooks</text>
+
+      <rect x="398" width="124" height="22" fill="#ECE6DA" stroke="#24232B" stroke-width="1.5"/>
+      <text x="408" y="15" font-family="'Courier New', monospace" font-size="11" font-weight="bold" fill="#24232B">In-App Updates</text>
+    </g>
+  </g>
 </svg>

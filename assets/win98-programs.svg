@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="392" viewBox="0 0 820 392">
+  <defs>
+    <linearGradient id="bar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2E4C89"/>
+      <stop offset="100%" stop-color="#D99AA8"/>
+    </linearGradient>
+    <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="2" fill="#000000" fill-opacity="0.06"/>
+    </pattern>
+  </defs>
+  <rect width="820" height="392" fill="#789BC2"/>
+  <rect width="820" height="392" fill="url(#scan)"/>
+
+  <g transform="translate(26, 14)">
+    <rect x="6" y="6" width="768" height="360" fill="#24232B" fill-opacity="0.32"/>
+    <rect width="768" height="360" fill="#ECE6DA"/>
+    <rect width="768" height="2.5" fill="#FFFFFF"/>
+    <rect width="2.5" height="360" fill="#FFFFFF"/>
+    <rect y="357.5" width="768" height="2.5" fill="#24232B"/>
+    <rect x="765.5" width="2.5" height="360" fill="#24232B"/>
+    <rect x="2.5" y="355" width="763" height="2.5" fill="#8C867A"/>
+    <rect x="763" y="2.5" width="2.5" height="355" fill="#8C867A"/>
+
+    <rect x="6" y="6" width="756" height="26" fill="url(#bar)"/>
+    <text x="16" y="23" font-family="'Courier New', Courier, monospace" font-size="13" font-weight="bold" fill="#FFFFFF">C:\RETROVIBE\PROGRAMS\ — Included Apps</text>
+
+    <rect x="12" y="38" width="744" height="310" fill="#F8F5EF"/>
+    <rect x="12" y="38" width="744" height="2" fill="#8C867A"/>
+    <rect x="12" y="38" width="2" height="310" fill="#8C867A"/>
+
+    <!-- Alternating subtle rows -->
+    <rect x="16" y="44" width="736" height="28" fill="#F6D6DF" fill-opacity="0.45"/>
+    <rect x="16" y="102" width="736" height="28" fill="#F6D6DF" fill-opacity="0.45"/>
+    <rect x="16" y="160" width="736" height="28" fill="#F6D6DF" fill-opacity="0.45"/>
+    <rect x="16" y="218" width="736" height="28" fill="#F6D6DF" fill-opacity="0.45"/>
+    <rect x="16" y="276" width="736" height="28" fill="#F6D6DF" fill-opacity="0.45"/>
+
+    <g font-family="'Courier New', Courier, monospace" font-size="12.5">
+      <text x="26" y="63" font-weight="bold" fill="#2E4C89">Desktop Notes</text>
+      <text x="228" y="63" fill="#24232B">Write quick .txt notes and pin them right onto your desktop.</text>
+
+      <text x="26" y="92" font-weight="bold" fill="#2E4C89">To do list</text>
+      <text x="228" y="92" fill="#24232B">Track daily tasks with a classic Win98 progress bar.</text>
+
+      <text x="26" y="121" font-weight="bold" fill="#2E4C89">Calendar &amp; Reminders</text>
+      <text x="228" y="121" fill="#24232B">Pixel stamps, dated reminders with popups &amp; phone alerts.</text>
+
+      <text x="26" y="150" font-weight="bold" fill="#2E4C89">MS Paint</text>
+      <text x="228" y="150" fill="#24232B">16 classic tools, opaque/transparent select, fill &amp; 28 colors.</text>
+
+      <text x="26" y="179" font-weight="bold" fill="#2E4C89">Internet Explorer</text>
+      <text x="228" y="179" fill="#24232B">Browse the real web with Favorites inside a Win98 window.</text>
+
+      <text x="26" y="208" font-weight="bold" fill="#2E4C89">E-mail</text>
+      <text x="228" y="208" fill="#24232B">RetroVibe Express inbox with optional Gmail sync &amp; popups.</text>
+
+      <text x="26" y="237" font-weight="bold" fill="#2E4C89">Pictures &amp; Audio</text>
+      <text x="228" y="237" fill="#24232B">Permission-only gallery, music player &amp; voice-reactive recorder.</text>
+
+      <text x="26" y="266" font-weight="bold" fill="#2E4C89">HeartSweeper &amp; Calc</text>
+      <text x="228" y="266" fill="#24232B">Heart-shaped mobile Minesweeper &amp; classic Win98 Calculator.</text>
+
+      <text x="26" y="295" font-weight="bold" fill="#2E4C89">Display &amp; Desk Cats</text>
+      <text x="228" y="295" fill="#24232B">4 themes, 3D Maze, 3D Pipes, Toasters, Mindi &amp; Spooks cats.</text>
+
+      <text x="26" y="324" font-weight="bold" fill="#2E4C89">Task Mgr &amp; Updates</text>
+      <text x="228" y="324" fill="#24232B">Manage windows &amp; install new GitHub releases right in-app.</text>
+    </g>
+  </g>
+</svg>

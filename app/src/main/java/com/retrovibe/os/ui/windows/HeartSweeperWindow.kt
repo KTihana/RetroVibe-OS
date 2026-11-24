@@ -4,16 +4,20 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,6 +30,7 @@ import com.retrovibe.os.ui.PixelIcon
 import com.retrovibe.os.ui.RetroButton
 import com.retrovibe.os.ui.win98Bevel
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 import kotlin.random.Random
 
 private val HEART_BOARD_MASK = listOf(
@@ -43,14 +48,13 @@ private val HEART_BOARD_MASK = listOf(
     "00000111111100000",
     "00000011111000000",
     "00000001110000000",
-    "00000000100000000",
-    "00000000000000000"
+    "00000000100000000"
 )
 
 private enum class SweeperDiff(val label: String, val rows: Int, val cols: Int, val mines: Int) {
     EASY("9x9", 9, 9, 10),
-    MEDIUM("16x16", 16, 16, 40),
-    HEART("Heart", 16, 17, 32)
+    HEART("Heart", 15, 17, 26),
+    MEDIUM("16x16", 16, 16, 40)
 }
 
 private data class SweeperCell(
@@ -60,31 +64,34 @@ private data class SweeperCell(
     val isMine: Boolean = false,
     val revealed: Boolean = false,
     val flagged: Boolean = false,
+    val exploded: Boolean = false,
     val adj: Int = 0
 )
 
 private val NUM_COLORS = mapOf(
-    1 to Color(0xFF0000FF),
-    2 to Color(0xFF008000),
-    3 to Color(0xFFFF0000),
-    4 to Color(0xFF000080),
-    5 to Color(0xFF800000),
-    6 to Color(0xFF008080),
-    7 to Color(0xFF000000),
-    8 to Color(0xFF808080)
+    1 to Color(0xFF1545D8),
+    2 to Color(0xFF147A28),
+    3 to Color(0xFFD81B3A),
+    4 to Color(0xFF0E1B7A),
+    5 to Color(0xFF7A1212),
+    6 to Color(0xFF0E7878),
+    7 to Color(0xFF222222),
+    8 to Color(0xFF666666)
 )
 
 @Composable
 fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val prefs = remember { context.getSharedPreferences("heartsweeper_records", Context.MODE_PRIVATE) }
 
     var diff by remember { mutableStateOf(SweeperDiff.HEART) }
     var flagMode by remember { mutableStateOf(false) }
+    var zoomScale by remember { mutableFloatStateOf(1.25f) } // Comfortable thumb-sized cells by default
     var gameState by remember { mutableStateOf("ready") } // ready | playing | won | lost
-    var timerSec by remember { mutableStateOf(0) }
+    var timerSec by remember { mutableIntStateOf(0) }
     var board by remember { mutableStateOf<List<List<SweeperCell>>>(emptyList()) }
-    var bestTime by remember(diff) { mutableStateOf(prefs.getInt("best_${diff.name}", -1)) }
+    var bestTime by remember(diff) { mutableIntStateOf(prefs.getInt("best_${diff.name}", -1)) }
 
     fun createEmptyBoard(d: SweeperDiff): List<List<SweeperCell>> =
         List(d.rows) { r ->
@@ -99,6 +106,8 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
         board = createEmptyBoard(d)
         gameState = "ready"
         timerSec = 0
+        flagMode = false
+        zoomScale = if (d == SweeperDiff.EASY) 1f else 1.35f
     }
 
     LaunchedEffect(Unit) { reset(SweeperDiff.HEART) }
@@ -110,12 +119,25 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
         }
     }
 
+    fun neighbors(grid: List<List<SweeperCell>>, r: Int, c: Int): List<Pair<Int, Int>> {
+        val out = mutableListOf<Pair<Int, Int>>()
+        for (dr in -1..1) for (dc in -1..1) {
+            if (dr == 0 && dc == 0) continue
+            val nr = r + dr
+            val nc = c + dc
+            if (nr in grid.indices && nc in grid[0].indices && grid[nr][nc].active) {
+                out.add(nr to nc)
+            }
+        }
+        return out
+    }
+
     fun placeMines(initial: List<List<SweeperCell>>, safeR: Int, safeC: Int): List<List<SweeperCell>> {
         val mutable = initial.map { it.toMutableList() }.toMutableList()
         val candidates = mutableListOf<Pair<Int, Int>>()
         for (r in mutable.indices) {
             for (c in mutable[r].indices) {
-                if (mutable[r][c].active && (kotlin.math.abs(r - safeR) > 1 || kotlin.math.abs(c - safeC) > 1)) {
+                if (mutable[r][c].active && (abs(r - safeR) > 1 || abs(c - safeC) > 1)) {
                     candidates.add(r to c)
                 }
             }
@@ -127,32 +149,120 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
         for (r in mutable.indices) {
             for (c in mutable[r].indices) {
                 if (!mutable[r][c].active || mutable[r][c].isMine) continue
-                var count = 0
-                for (dr in -1..1) for (dc in -1..1) {
-                    val nr = r + dr; val nc = c + dc
-                    if (nr in mutable.indices && nc in mutable[0].indices && mutable[nr][nc].active && mutable[nr][nc].isMine) {
-                        count++
-                    }
-                }
+                val count = neighbors(mutable, r, c).count { (nr, nc) -> mutable[nr][nc].isMine }
                 mutable[r][c] = mutable[r][c].copy(adj = count)
             }
         }
         return mutable
     }
 
-    fun revealAt(r: Int, c: Int) {
+    fun toggleFlagAt(r: Int, c: Int) {
+        if (gameState == "won" || gameState == "lost") return
+        val target = board.getOrNull(r)?.getOrNull(c) ?: return
+        if (!target.active || target.revealed) return
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
+        board = board.mapIndexed { ri, row ->
+            row.mapIndexed { ci, cell ->
+                if (ri == r && ci == c) cell.copy(flagged = !cell.flagged) else cell
+            }
+        }
+    }
+
+    fun checkWinAndCommit(mutable: MutableList<MutableList<SweeperCell>>) {
+        val allSafeRevealed = mutable.flatten().none { it.active && !it.isMine && !it.revealed }
+        if (allSafeRevealed) {
+            // Auto-flag all remaining mines on victory!
+            for (ri in mutable.indices) for (ci in mutable[ri].indices) {
+                val cell = mutable[ri][ci]
+                if (cell.active && cell.isMine && !cell.flagged) {
+                    mutable[ri][ci] = cell.copy(flagged = true)
+                }
+            }
+            board = mutable
+            gameState = "won"
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            RetroSoundEngine.play(RetroSound.SUCCESS, vm.soundEnabled)
+            if (bestTime < 0 || timerSec < bestTime) {
+                bestTime = timerSec
+                prefs.edit().putInt("best_${diff.name}", timerSec).apply()
+            }
+        } else {
+            board = mutable
+            RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
+        }
+    }
+
+    fun floodReveal(mutable: MutableList<MutableList<SweeperCell>>, startR: Int, startC: Int) {
+        val queue = ArrayDeque<Pair<Int, Int>>()
+        queue.add(startR to startC)
+        mutable[startR][startC] = mutable[startR][startC].copy(revealed = true)
+        while (queue.isNotEmpty()) {
+            val (cr, cc) = queue.removeFirst()
+            if (mutable[cr][cc].adj == 0) {
+                for ((nr, nc) in neighbors(mutable, cr, cc)) {
+                    val nb = mutable[nr][nc]
+                    if (!nb.revealed && !nb.flagged && !nb.isMine) {
+                        mutable[nr][nc] = nb.copy(revealed = true)
+                        queue.add(nr to nc)
+                    }
+                }
+            }
+        }
+    }
+
+    fun triggerLoss(mutable: MutableList<MutableList<SweeperCell>>, hitR: Int, hitC: Int) {
+        for (ri in mutable.indices) for (ci in mutable[ri].indices) {
+            val cell = mutable[ri][ci]
+            if (cell.isMine && !cell.flagged) {
+                mutable[ri][ci] = cell.copy(revealed = true, exploded = (ri == hitR && ci == hitC))
+            }
+        }
+        board = mutable
+        gameState = "lost"
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
+    }
+
+    // Tap a revealed number whose adjacent flags match its number -> auto-clear remaining safe neighbors!
+    fun chordAt(r: Int, c: Int) {
+        if (gameState != "playing") return
+        val cell = board.getOrNull(r)?.getOrNull(c) ?: return
+        if (!cell.revealed || cell.adj <= 0) return
+        val nbs = neighbors(board, r, c)
+        val flagCount = nbs.count { (nr, nc) -> board[nr][nc].flagged }
+        if (flagCount != cell.adj) return
+        val hiddenUnflagged = nbs.filter { (nr, nc) -> !board[nr][nc].revealed && !board[nr][nc].flagged }
+        if (hiddenUnflagged.isEmpty()) return
+
+        val mutable = board.map { it.toMutableList() }.toMutableList()
+        for ((nr, nc) in hiddenUnflagged) {
+            if (mutable[nr][nc].isMine) {
+                triggerLoss(mutable, nr, nc)
+                return
+            }
+            if (!mutable[nr][nc].revealed) {
+                floodReveal(mutable, nr, nc)
+            }
+        }
+        checkWinAndCommit(mutable)
+    }
+
+    fun tapCell(r: Int, c: Int) {
         if (gameState == "won" || gameState == "lost") return
         var grid = board
         val target = grid.getOrNull(r)?.getOrNull(c) ?: return
         if (!target.active) return
 
-        if (flagMode && !target.revealed) {
-            RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
-            board = grid.mapIndexed { ri, row ->
-                row.mapIndexed { ci, cell ->
-                    if (ri == r && ci == c) cell.copy(flagged = !cell.flagged) else cell
-                }
-            }
+        // Tapping a revealed number performs smart chording!
+        if (target.revealed) {
+            chordAt(r, c)
+            return
+        }
+
+        // First tap always starts the game safely even if flag mode was left on
+        if (flagMode && gameState == "playing") {
+            toggleFlagAt(r, c)
             return
         }
 
@@ -164,56 +274,19 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
         }
 
         val mutable = grid.map { it.toMutableList() }.toMutableList()
-        val clicked = mutable[r][c]
-        if (clicked.revealed) return
-
-        if (clicked.isMine) {
-            for (ri in mutable.indices) for (ci in mutable[ri].indices) {
-                if (mutable[ri][ci].isMine) mutable[ri][ci] = mutable[ri][ci].copy(revealed = true)
-            }
-            board = mutable
-            gameState = "lost"
-            RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
+        if (mutable[r][c].isMine) {
+            triggerLoss(mutable, r, c)
             return
         }
 
-        // BFS flood reveal
-        val queue = ArrayDeque<Pair<Int, Int>>()
-        queue.add(r to c)
-        mutable[r][c] = mutable[r][c].copy(revealed = true)
-        while (queue.isNotEmpty()) {
-            val (cr, cc) = queue.removeFirst()
-            if (mutable[cr][cc].adj == 0) {
-                for (dr in -1..1) for (dc in -1..1) {
-                    val nr = cr + dr; val nc = cc + dc
-                    if (nr in mutable.indices && nc in mutable[0].indices) {
-                        val nb = mutable[nr][nc]
-                        if (nb.active && !nb.revealed && !nb.flagged && !nb.isMine) {
-                            mutable[nr][nc] = nb.copy(revealed = true)
-                            queue.add(nr to nc)
-                        }
-                    }
-                }
-            }
-        }
-
-        val allSafeRevealed = mutable.flatten().none { it.active && !it.isMine && !it.revealed }
-        board = mutable
-        if (allSafeRevealed) {
-            gameState = "won"
-            RetroSoundEngine.play(RetroSound.SUCCESS, vm.soundEnabled)
-            if (bestTime < 0 || timerSec < bestTime) {
-                bestTime = timerSec
-                prefs.edit().putInt("best_${diff.name}", timerSec).apply()
-            }
-        } else {
-            RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
-        }
+        floodReveal(mutable, r, c)
+        checkWinAndCommit(mutable)
     }
 
     val flagsUsed = board.flatten().count { it.flagged }
-    val minesLeft = (diff.mines - flagsUsed).coerceAtLeast(0)
-    val cellSize = if (diff == SweeperDiff.EASY) 28.dp else 18.dp
+    val minesLeft = diff.mines - flagsUsed
+    val baseCell = if (diff == SweeperDiff.EASY) 32f else 22f
+    val cellSize = (baseCell * zoomScale).coerceIn(18f, 44f).dp
 
     Column(
         modifier = Modifier
@@ -222,10 +295,10 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
             .padding(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Difficulty tabs
+        // Difficulty + Zoom controls
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SweeperDiff.entries.forEach { d ->
@@ -238,14 +311,18 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
             }
             Spacer(Modifier.weight(1f))
             RetroButton(
-                label = if (flagMode) "Flag: ON" else "Reveal",
+                label = "-",
                 palette = palette,
-                active = flagMode,
-                onClick = { flagMode = !flagMode }
+                onClick = { zoomScale = (zoomScale - 0.25f).coerceAtLeast(0.75f) }
+            )
+            RetroButton(
+                label = "+",
+                palette = palette,
+                onClick = { zoomScale = (zoomScale + 0.25f).coerceAtMost(2.0f) }
             )
         }
 
-        // LED Header bar
+        // Classic LED Header bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -260,29 +337,30 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
                     .border(1.dp, Color(0xFF804060))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
+                val displayMines = if (minesLeft < 0) "-${(-minesLeft).toString().padStart(2, '0')}" else minesLeft.toString().padStart(3, '0')
                 Text(
-                    text = minesLeft.toString().padStart(3, '0'),
+                    text = displayMines,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Color(0xFFE02255)
+                    color = Color(0xFFFF2E63)
                 )
             }
 
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(30.dp)
                     .win98Bevel(sunken = false, bg = Color(0xFFFFD6E6))
                     .clickable { reset(diff) },
                 contentAlignment = Alignment.Center
             ) {
                 PixelIcon(
                     when (gameState) {
-                        "won" -> "heart"
-                        "lost" -> "mine_heart"
-                        else -> "sweeper"
+                        "won" -> "wonHeart"
+                        "lost" -> "brokenHeart"
+                        else -> "heart"
                     },
-                    18.dp
+                    20.dp
                 )
             }
 
@@ -297,19 +375,19 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Color(0xFFE02255)
+                    color = Color(0xFFFF2E63)
                 )
             }
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(5.dp))
 
-        // Board
+        // Scrollable + Zoomable Board
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .win98Bevel(sunken = true, bg = Color(0xFFFFE5F0))
+                .win98Bevel(sunken = true, bg = Color(0xFFFFE8F2))
                 .padding(4.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -325,29 +403,43 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
                             if (!cell.active) {
                                 Spacer(Modifier.size(cellSize))
                             } else {
+                                val bg = when {
+                                    cell.exploded -> Color(0xFFFF3B5C)
+                                    cell.revealed -> Color(0xFFFFF2F7)
+                                    else -> Color(0xFFFFAEC6)
+                                }
                                 Box(
                                     modifier = Modifier
                                         .size(cellSize)
                                         .then(
                                             if (cell.revealed) {
                                                 Modifier
-                                                    .background(Color(0xFFFFEEF5))
-                                                    .border(0.5.dp, Color(0xFFE8A4BF))
+                                                    .background(bg)
+                                                    .border(0.5.dp, Color(0xFFE5A4BF))
                                             } else {
-                                                Modifier.win98Bevel(sunken = false, bg = Color(0xFFFFAEC6))
+                                                Modifier.win98Bevel(sunken = false, bg = bg, strokeDp = 1.5.dp)
                                             }
                                         )
-                                        .clickable { revealAt(cell.r, cell.c) },
+                                        .pointerInput(cell.r, cell.c, gameState, flagMode) {
+                                            detectTapGestures(
+                                                onTap = { tapCell(cell.r, cell.c) },
+                                                onLongPress = { toggleFlagAt(cell.r, cell.c) }
+                                            )
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     when {
-                                        cell.flagged && !cell.revealed -> PixelIcon("flag_heart", (cellSize.value * 0.72f).dp)
-                                        cell.revealed && cell.isMine -> PixelIcon("mine_heart", (cellSize.value * 0.75f).dp)
+                                        gameState == "lost" && cell.flagged && !cell.isMine ->
+                                            PixelIcon("wrongFlag", (cellSize.value * 0.76f).dp)
+                                        cell.flagged && !cell.revealed ->
+                                            PixelIcon("flag_heart", (cellSize.value * 0.74f).dp)
+                                        cell.revealed && cell.isMine ->
+                                            PixelIcon("brokenHeart", (cellSize.value * 0.78f).dp)
                                         cell.revealed && cell.adj > 0 -> Text(
                                             text = cell.adj.toString(),
                                             fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = if (diff == SweeperDiff.EASY) 12.sp else 10.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = (cellSize.value * 0.52f).coerceIn(10f, 20f).sp,
                                             color = NUM_COLORS[cell.adj] ?: Color.Black
                                         )
                                     }
@@ -359,7 +451,30 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
             }
         }
 
-        // Status footer
+        Spacer(Modifier.height(5.dp))
+
+        // Thumb-friendly bottom Dig / Flag bar + Best Time
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RetroButton(
+                label = if (!flagMode) "[*] Dig" else "Dig",
+                palette = palette,
+                active = !flagMode,
+                modifier = Modifier.weight(1f),
+                onClick = { flagMode = false }
+            )
+            RetroButton(
+                label = if (flagMode) "[*] Flag" else "Flag",
+                palette = palette,
+                active = flagMode,
+                modifier = Modifier.weight(1f),
+                onClick = { flagMode = true }
+            )
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -368,7 +483,7 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
                 text = when (gameState) {
                     "won" -> "YOU WON! Tap heart to replay"
                     "lost" -> "BOOM! Tap heart to retry"
-                    else -> "Tap cells to clear hearts"
+                    else -> "Hold to flag • Tap number to chord"
                 },
                 fontFamily = FontFamily.Monospace,
                 fontSize = 9.sp,

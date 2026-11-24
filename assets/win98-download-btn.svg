@@ -1,23 +1,79 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="310" height="54" viewBox="0 0 310 54" shape-rendering="crispEdges">
-  <!-- Classic Win98 3D Raised Button -->
-  <rect x="0" y="0" width="310" height="54" fill="#000000"/>
-  <rect x="0" y="0" width="308" height="52" fill="#FFFFFF"/>
-  <rect x="2" y="2" width="306" height="50" fill="#808080"/>
-  <rect x="2" y="2" width="304" height="48" fill="#DFDFDF"/>
-  <rect x="4" y="4" width="302" height="46" fill="#C0C0C0"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="114" viewBox="0 0 820 114">
+  <defs>
+    <linearGradient id="btnBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2E4C89"/>
+      <stop offset="100%" stop-color="#D99AA8"/>
+    </linearGradient>
+    <linearGradient id="pillGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F6C2D2"/>
+      <stop offset="100%" stop-color="#E69AB0"/>
+    </linearGradient>
+    <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="2" fill="#000000" fill-opacity="0.06"/>
+    </pattern>
+  </defs>
 
-  <!-- Dotted Focus Ring -->
-  <rect x="9" y="9" width="292" height="36" fill="none" stroke="#000000" stroke-width="1" stroke-dasharray="2,2"/>
+  <!-- Full Pastel Denim Wallpaper + CRT Scanlines (matching banner!) -->
+  <rect width="820" height="114" fill="#789BC2"/>
+  <rect width="820" height="114" fill="url(#scanlines)"/>
 
-  <!-- Mini Pixel Floppy Disk Icon -->
-  <rect x="24" y="16" width="20" height="20" fill="#111111"/>
-  <rect x="26" y="18" width="16" height="16" fill="#2E5CB8"/>
-  <rect x="29" y="18" width="10" height="6" fill="#FFFFFF"/>
-  <rect x="35" y="19" width="2" height="4" fill="#111111"/>
-  <rect x="28" y="27" width="12" height="7" fill="#E8E4DC"/>
-  <rect x="30" y="29" width="8" height="1" fill="#E04068"/>
-  <rect x="30" y="31" width="6" height="1" fill="#555555"/>
+  <!-- Centered RETROVIBE_SETUP.EXE Download Dialog -->
+  <g transform="translate(222, 16)">
+    <!-- Soft Drop Shadow -->
+    <rect x="6" y="6" width="372" height="76" fill="#24232B" fill-opacity="0.32"/>
 
-  <!-- Button Label -->
-  <text x="56" y="32" font-family="'Courier New', Courier, monospace" font-size="14" font-weight="bold" fill="#000000">Download RetroVibe OS (.APK)</text>
+    <!-- Outer Win98 Dialog Button Frame -->
+    <rect x="0" y="0" width="372" height="76" fill="#ECE6DA"/>
+    <!-- 3D Raised Bevel -->
+    <rect x="0" y="0" width="372" height="2.5" fill="#FFFFFF"/>
+    <rect x="0" y="0" width="2.5" height="76" fill="#FFFFFF"/>
+    <rect x="0" y="73.5" width="372" height="2.5" fill="#24232B"/>
+    <rect x="369.5" y="0" width="2.5" height="76" fill="#24232B"/>
+    <rect x="2.5" y="71" width="367" height="2.5" fill="#8C867A"/>
+    <rect x="367" y="2.5" width="2.5" height="71" fill="#8C867A"/>
+
+    <!-- Mini Gradient Title Bar -->
+    <rect x="5" y="5" width="362" height="17" fill="url(#btnBar)"/>
+    <text x="11" y="17" font-family="'Courier New', Courier, monospace" font-size="10.5" font-weight="bold" fill="#FFFFFF">RETROVIBE_SETUP.EXE</text>
+    <!-- Tiny Titlebar Controls -->
+    <g transform="translate(328, 7.5)">
+      <rect width="11" height="11" fill="#ECE6DA" stroke="#24232B" stroke-width="1"/>
+      <rect x="2.5" y="7.5" width="6" height="1.5" fill="#24232B"/>
+      <rect x="13" width="11" height="11" fill="#ECE6DA" stroke="#24232B" stroke-width="1"/>
+      <rect x="15.5" y="2.5" width="6" height="5.5" fill="none" stroke="#24232B" stroke-width="1.2"/>
+      <rect x="26" width="11" height="11" fill="#ECE6DA" stroke="#24232B" stroke-width="1"/>
+      <text x="28.5" y="9.5" font-family="'Courier New', monospace" font-size="10" font-weight="bold" fill="#24232B">×</text>
+    </g>
+
+    <!-- Detailed Pixel Floppy Disk Icon -->
+    <g transform="translate(15, 29)">
+      <rect x="0" y="0" width="36" height="36" rx="2" fill="#6486C8" stroke="#101228" stroke-width="2.5"/>
+      <rect x="2" y="2" width="3" height="32" fill="#8EB2EE"/>
+      <rect x="10" y="1" width="16" height="13" fill="#D2DCE6" stroke="#101228" stroke-width="2"/>
+      <rect x="11" y="2" width="4" height="11" fill="#FFFFFF"/>
+      <rect x="19" y="4" width="4.5" height="7.5" fill="#6486C8" stroke="#101228" stroke-width="1.5"/>
+      <rect x="6" y="18" width="24" height="17" fill="#FFF7DC" stroke="#101228" stroke-width="2"/>
+      <rect x="7" y="25" width="22" height="9" fill="#F0728C"/>
+      <rect x="15" y="20" width="2.5" height="2.5" fill="#E84474"/>
+      <rect x="18.5" y="20" width="2.5" height="2.5" fill="#E84474"/>
+      <rect x="15" y="21.5" width="6" height="2" fill="#E84474"/>
+      <rect x="16.5" y="23.5" width="3" height="1.5" fill="#E84474"/>
+    </g>
+
+    <!-- Main Label -->
+    <text x="64" y="45" font-family="'Courier New', Courier, monospace" font-size="15" font-weight="bold" fill="#24232B">Download RetroVibe OS</text>
+    <text x="64" y="61" font-family="'Courier New', Courier, monospace" font-size="11" font-weight="bold" fill="#5F5B54">Signed Android APK · Free</text>
+
+    <!-- Raised Pastel-Pink Action Button Pill -->
+    <g transform="translate(278, 32)">
+      <rect width="82" height="30" fill="url(#pillGrad)"/>
+      <rect width="82" height="2" fill="#FFFFFF"/>
+      <rect width="2" height="30" fill="#FFFFFF"/>
+      <rect y="28" width="82" height="2" fill="#24232B"/>
+      <rect x="80" width="2" height="30" fill="#24232B"/>
+      <rect x="2" y="26" width="78" height="2" fill="#B4627C"/>
+      <rect x="78" y="2" width="2" height="26" fill="#B4627C"/>
+      <text x="12" y="19.5" font-family="'Courier New', Courier, monospace" font-size="12" font-weight="bold" fill="#24232B">▼ .APK</text>
+    </g>
+  </g>
 </svg>
