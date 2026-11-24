@@ -291,12 +291,13 @@ fun DesktopScreen(vm: OSViewModel) {
                 // Keep icon grid height stable when soft keyboard opens so icons never jump around!
                 var stableBoundsH by remember { mutableFloatStateOf(boundsH) }
                 if (boundsH > stableBoundsH) stableBoundsH = boundsH
-                val cellW = 78f
+                // Tight, symmetrical left & right margins (~6dp) with columns evenly distributed across screen
+                val sideMargin = 6f
+                val maxCols = ((boundsW - sideMargin * 2f) / 76f).toInt().coerceAtLeast(1)
+                val cellW = (boundsW - sideMargin * 2f) / maxCols
                 val cellH = 82f
                 val maxRows = ((stableBoundsH - 16f) / cellH).toInt().coerceAtLeast(1)
-                val maxCols = ((boundsW - 12f) / cellW).toInt().coerceAtLeast(1)
-                // Symmetrical left & right margins!
-                val sideMargin = ((boundsW - maxCols * cellW) / 2f).coerceAtLeast(6f)
+                val colPadX = ((cellW - 74f) / 2f).coerceAtLeast(0f)
 
                 // Compute zero-overlap snap-to-grid positions
                 val occupied = mutableSetOf<Pair<Int, Int>>()
@@ -331,7 +332,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         if ((defC to defR) !in occupied && defC < maxCols) defC to defR else nearestFreeSlot(defC, defR)
                     }
                     occupied.add(col to row)
-                    resolvedPositions[sc.id] = (sideMargin + col * cellW) to (8f + row * cellH)
+                    resolvedPositions[sc.id] = (sideMargin + col * cellW + colPadX) to (8f + row * cellH)
                 }
 
                 val recyclePos = resolvedPositions["icon-recycle"]
@@ -395,7 +396,7 @@ fun DesktopScreen(vm: OSViewModel) {
                                         }
                                         val snapC = ((dragX - sideMargin) / cellW).roundToInt().coerceIn(0, maxCols - 1)
                                         val snapR = ((dragY - 8f) / cellH).roundToInt().coerceIn(0, maxRows - 1)
-                                        val nx = sideMargin + snapC * cellW
+                                        val nx = sideMargin + snapC * cellW + colPadX
                                         val ny = 8f + snapR * cellH
                                         dragX = nx
                                         dragY = ny
@@ -684,12 +685,12 @@ fun DesktopScreen(vm: OSViewModel) {
                         "settings" -> settingsList
                         else -> null
                     }
-                    // Align submenu next to the opened row (measured from bottom of Start Menu!)
+                    // Align each cascading submenu right beside its own Start Menu row!
                     val submenuBottomOffset = when (activeSubmenu) {
-                        "programs" -> 108.dp
-                        "documents" -> 124.dp
-                        "games" -> 104.dp
-                        "settings" -> 76.dp
+                        "programs" -> 0.dp
+                        "documents" -> 114.dp
+                        "games" -> 142.dp
+                        "settings" -> 54.dp
                         else -> 0.dp
                     }
 

@@ -125,7 +125,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                 null
             }
         }
-        loaded ?: Bitmap.createBitmap(300, 340, Bitmap.Config.ARGB_8888).apply {
+        loaded ?: Bitmap.createBitmap(320, 440, Bitmap.Config.ARGB_8888).apply {
             android.graphics.Canvas(this).drawColor(android.graphics.Color.WHITE)
         }
     }
@@ -760,14 +760,17 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.White)
+                        .background(Color(0xFF808080))
                         .pointerInput(bitmap) {
                             fun toBmp(o: Offset): Offset {
                                 val vw = bw.toFloat() / zoom
                                 val vh = bh.toFloat() / zoom
+                                val scale = minOf(size.width / vw, size.height / vh).coerceAtLeast(0.01f)
+                                val ox = (size.width - vw * scale) / 2f
+                                val oy = (size.height - vh * scale) / 2f
                                 return Offset(
-                                    (viewX + o.x / size.width * vw).coerceIn(0f, bw - 1f),
-                                    (viewY + o.y / size.height * vh).coerceIn(0f, bh - 1f)
+                                    (viewX + (o.x - ox) / scale).coerceIn(0f, bw - 1f),
+                                    (viewY + (o.y - oy) / scale).coerceIn(0f, bh - 1f)
                                 )
                             }
                             awaitEachGesture {
@@ -799,15 +802,24 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                     @Suppress("UNUSED_VARIABLE") val tick = redrawTick
                     val vw = bw.toFloat() / zoom
                     val vh = bh.toFloat() / zoom
-                    val sx = size.width / vw
-                    val sy = size.height / vh
-                    fun scr(b: Offset) = Offset((b.x - viewX) * sx, (b.y - viewY) * sy)
+                    // Uniform 1:1 square-pixel scale so drawings & letters NEVER squish or stretch!
+                    val scale = minOf(size.width / vw, size.height / vh).coerceAtLeast(0.01f)
+                    val drawW = vw * scale
+                    val drawH = vh * scale
+                    val ox = (size.width - drawW) / 2f
+                    val oy = (size.height - drawH) / 2f
+                    val sx = scale
+                    val sy = scale
+                    fun scr(b: Offset) = Offset(ox + (b.x - viewX) * scale, oy + (b.y - viewY) * scale)
 
+                    // White paper backing + subtle Win98 drop shadow inside grey workspace
+                    drawRect(Color(0xFF404040), Offset(ox + 2f, oy + 2f), Size(drawW, drawH))
                     drawImage(
                         image = bitmap.asImageBitmap(),
                         srcOffset = IntOffset(viewX.toInt(), viewY.toInt()),
                         srcSize = IntSize(vw.toInt().coerceAtLeast(1), vh.toInt().coerceAtLeast(1)),
-                        dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                        dstOffset = IntOffset(ox.roundToInt(), oy.roundToInt()),
+                        dstSize = IntSize(drawW.roundToInt().coerceAtLeast(1), drawH.roundToInt().coerceAtLeast(1)),
                         filterQuality = FilterQuality.None
                     )
 
