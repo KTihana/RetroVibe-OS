@@ -1,0 +1,984 @@
+package com.retrovibe.os.ui
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import coil.compose.AsyncImage
+import com.retrovibe.os.audio.RetroSound
+import com.retrovibe.os.audio.RetroSoundEngine
+import com.retrovibe.os.model.ScreensaverId
+import com.retrovibe.os.store.OSViewModel
+import com.retrovibe.os.store.todayIso
+import com.retrovibe.os.theme.RetroThemes
+import com.retrovibe.os.ui.windows.*
+import kotlinx.coroutines.delay
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import kotlin.math.abs
+import kotlin.math.hypot
+import kotlin.math.roundToInt
+
+private data class DesktopShortcut(
+    val id: String,
+    val label: String,
+    val icon: String,
+    val windowId: String? = null,
+    val noteId: String? = null,
+    val badgeCount: Int = 0
+)
+
+private data class StartMenuEntry(
+    val label: String,
+    val icon: String,
+    val desktopIconId: String? = null,
+    val action: () -> Unit
+)
+
+@Composable
+fun DesktopScreen(vm: OSViewModel) {
+    val theme = RetroThemes.of(vm.themeId)
+    val density = LocalDensity.current
+
+    var booted by remember { mutableStateOf(false) }
+    var loggedIn by remember { mutableStateOf(false) }
+    var poweredOff by remember { mutableStateOf(false) }
+    var showShutdownDialog by remember { mutableStateOf(false) }
+    var startMenuOpen by remember { mutableStateOf(false) }
+    var activeSubmenu by remember { mutableStateOf<String?>(null) } // programs | documents | games | settings
+    var selectedIconId by remember { mutableStateOf<String?>(null) }
+    var contextMenuIconId by remember { mutableStateOf<String?>(null) }
+    var showDesktopMenu by remember { mutableStateOf(false) }
+    var toastMsg by remember { mutableStateOf<String?>(null) }
+    var clockStr by remember { mutableStateOf(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))) }
+    var idleSeconds by remember { mutableIntStateOf(0) }
+    var loginNameInput by remember { mutableStateOf(vm.username) }
+
+    fun showToast(msg: String) {
+        toastMsg = msg
+    }
+
+    LaunchedEffect(toastMsg) {
+        if (toastMsg != null) {
+            delay(2000)
+            toastMsg = null
+        }
+    }
+
+    // Live clock + Screensaver idle timer
+    LaunchedEffect(vm.screensaverWaitSec, vm.screensaverId, vm.screensaverActive) {
+        while (true) {
+            delay(1000)
+            clockStr = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+            if (booted && !poweredOff && vm.screensaverWaitSec > 0 && vm.screensaverId != ScreensaverId.NONE && !vm.screensaverActive) {
+                idleSeconds++
+                if (idleSeconds >= vm.screensaverWaitSec) {
+                    vm.screensaverActive = true
+                    idleSeconds = 0
+                }
+            }
+        }
+    }
+
+    // Boot screen
+    if (!booted) {
+        BootScreen(onFinish = {
+            booted = true
+            loggedIn = !vm.loginPromptEnabled
+            RetroSoundEngine.play(RetroSound.STARTUP, vm.soundEnabled)
+        })
+        return
+    }
+
+    // Power-off screen
+    if (poweredOff) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable {
+                    poweredOff = false
+                    booted = false
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "It is now safe to turn off\nyour RetroVibe OS phone.",
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFFFF8800),
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "(Tap anywhere to power back on)",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = Color(0xFFAA5500)
+                )
+            }
+        }
+        return
+    }
+
+    // Optional Win98 Login Screen
+    if (!loggedIn) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(theme.wallpaper),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(290.dp)
+                    .win98Bevel(sunken = false, bg = theme.windowBg)
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Brush.horizontalGradient(listOf(theme.titleBarActive, theme.titleBarAccent)))
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
+                    Text("Welcome to RetroVibe OS", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PixelIcon("winFlag", 32.dp)
+                    Text("Type a user name to log on to RetroVibe OS.", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = theme.textPrimary)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("User:", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = theme.textPrimary)
+                    Box(modifier = Modifier.weight(1f).win98Bevel(sunken = true, bg = Color.White).padding(5.dp)) {
+                        BasicTextField(
+                            value = loginNameInput,
+                            onValueChange = { loginNameInput = it },
+                            singleLine = true,
+                            textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Black),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    RetroButton(label = "OK", palette = theme, active = true, onClick = {
+                        vm.username = loginNameInput.ifBlank { "RetroUser" }
+                        vm.persist()
+                        loggedIn = true
+                        RetroSoundEngine.play(RetroSound.STARTUP, vm.soundEnabled)
+                    })
+                }
+            }
+        }
+        return
+    }
+
+    val pendingTodos = vm.todos.count { todayIso() !in it.completedDates }
+    val pendingReminders = vm.reminders.count { !it.completed }
+
+    val baseShortcuts = listOf(
+        DesktopShortcut("icon-explorer", "My Computer", "computer", "explorer"),
+        DesktopShortcut("icon-gallery", "My Pictures", "gallery", "gallery"),
+        DesktopShortcut("icon-music", "Music", "music", "music"),
+        DesktopShortcut("icon-calendar", "Calendar", "calendar", "calendar"),
+        DesktopShortcut("icon-reminders", "Reminders", "reminder", "reminders", badgeCount = pendingReminders),
+        DesktopShortcut("icon-habits", "To do list", "habit", "habits", badgeCount = pendingTodos),
+        DesktopShortcut("icon-paint", "MS Paint", "paint", "paint"),
+        DesktopShortcut("icon-browser", "Internet", "ie", "browser"),
+        DesktopShortcut("icon-mail", "E-mail", "mail", "mail", badgeCount = 2),
+        DesktopShortcut("icon-recycle", if (vm.trash.isEmpty()) "Recycle Bin" else "Recycle Bin", "recycle", "recycle", badgeCount = vm.trash.size),
+        DesktopShortcut("icon-sweeper", "HeartSweeper", "sweeper", "sweeper"),
+        DesktopShortcut("icon-calc", "Calculator", "calc", "calc"),
+        DesktopShortcut("icon-recorder", "Sound Recorder", "recorder", "recorder"),
+        DesktopShortcut("icon-taskmgr", "Task Manager", "taskmgr", "taskmgr"),
+        DesktopShortcut("icon-settings", "Display", "settings", "settings"),
+        DesktopShortcut("icon-status", "Updates", "status", "status")
+    ).filter { it.id !in vm.hiddenDesktopIcons }
+
+    val pinnedNoteShortcuts = vm.notes.filter { it.pinnedToDesktop }.map { n ->
+        DesktopShortcut("icon-note-${n.id}", n.title, "note", noteId = n.id)
+    }
+    val allShortcuts = baseShortcuts + pinnedNoteShortcuts
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(theme.wallpaper)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        if (ev.changes.any { it.pressed }) idleSeconds = 0
+                    }
+                }
+            }
+    ) {
+        // Optional custom wallpaper
+        if (vm.customWallpaperUri != null) {
+            AsyncImage(
+                model = vm.customWallpaperUri,
+                contentDescription = "Wallpaper",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Desktop Workspace Area
+            BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                startMenuOpen = false
+                                activeSubmenu = null
+                                selectedIconId = null
+                                contextMenuIconId = null
+                                showDesktopMenu = false
+                            },
+                            onLongPress = {
+                                startMenuOpen = false
+                                contextMenuIconId = null
+                                showDesktopMenu = true
+                            }
+                        )
+                    }
+            ) {
+                val boundsW = maxWidth.value
+                val boundsH = maxHeight.value
+                val cellW = 78f
+                val cellH = 82f
+                val maxRows = ((boundsH - 16f) / cellH).toInt().coerceAtLeast(1)
+                val maxCols = ((boundsW - 12f) / cellW).toInt().coerceAtLeast(1)
+
+                // Compute zero-overlap snap-to-grid positions
+                val occupied = mutableSetOf<Pair<Int, Int>>()
+                val resolvedPositions = mutableMapOf<String, Pair<Float, Float>>()
+
+                fun nearestFreeSlot(prefCol: Int, prefRow: Int): Pair<Int, Int> {
+                    var best: Pair<Int, Int>? = null
+                    var bestDist = Float.MAX_VALUE
+                    for (c in 0 until maxCols) {
+                        for (r in 0 until maxRows) {
+                            if ((c to r) !in occupied) {
+                                val d = hypot((c - prefCol).toFloat(), (r - prefRow).toFloat())
+                                if (d < bestDist) {
+                                    bestDist = d
+                                    best = c to r
+                                }
+                            }
+                        }
+                    }
+                    return best ?: (0 to 0)
+                }
+
+                allShortcuts.forEachIndexed { idx, sc ->
+                    val saved = vm.iconPositions[sc.id]
+                    val (col, row) = if (saved != null) {
+                        val c = ((saved.x - 6f) / cellW).roundToInt().coerceIn(0, maxCols - 1)
+                        val r = ((saved.y - 8f) / cellH).roundToInt().coerceIn(0, maxRows - 1)
+                        if ((c to r) !in occupied) c to r else nearestFreeSlot(c, r)
+                    } else {
+                        val defC = idx / maxRows
+                        val defR = idx % maxRows
+                        if ((defC to defR) !in occupied && defC < maxCols) defC to defR else nearestFreeSlot(defC, defR)
+                    }
+                    occupied.add(col to row)
+                    resolvedPositions[sc.id] = (6f + col * cellW) to (8f + row * cellH)
+                }
+
+                val recyclePos = resolvedPositions["icon-recycle"]
+
+                // Desktop Icons
+                allShortcuts.forEach { sc ->
+                    val (ix, iy) = resolvedPositions[sc.id] ?: (6f to 8f)
+                    var dragX by remember(sc.id, ix) { mutableFloatStateOf(ix) }
+                    var dragY by remember(sc.id, iy) { mutableFloatStateOf(iy) }
+                    var isDragging by remember(sc.id) { mutableStateOf(false) }
+
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(with(density) { dragX.dp.roundToPx() }, with(density) { dragY.dp.roundToPx() }) }
+                            .width(74.dp)
+                            .zIndex(if (isDragging) 50f else 1f)
+                            .pointerInput(sc.id) {
+                                detectTapGestures(
+                                    onTap = {
+                                        startMenuOpen = false
+                                        contextMenuIconId = null
+                                        showDesktopMenu = false
+                                        selectedIconId = sc.id
+                                        if (sc.windowId != null) {
+                                            vm.openWindow(sc.windowId)
+                                        } else if (sc.noteId != null) {
+                                            val n = vm.notes.find { it.id == sc.noteId }
+                                            if (n != null) vm.openWindow("note:${n.id}", n.title)
+                                        }
+                                    },
+                                    onLongPress = {
+                                        RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
+                                        selectedIconId = sc.id
+                                        contextMenuIconId = sc.id
+                                        showDesktopMenu = false
+                                    }
+                                )
+                            }
+                            .pointerInput(sc.id, boundsW, boundsH) {
+                                detectDragGestures(
+                                    onDragStart = {
+                                        isDragging = true
+                                        selectedIconId = sc.id
+                                        contextMenuIconId = null
+                                    },
+                                    onDragEnd = {
+                                        isDragging = false
+                                        // Check drop onto Recycle Bin
+                                        if (sc.id != "icon-recycle" && recyclePos != null) {
+                                            val distToBin = hypot(dragX - recyclePos.first, dragY - recyclePos.second)
+                                            if (distToBin < 46f) {
+                                                if (sc.noteId != null) {
+                                                    vm.deleteNote(sc.noteId)
+                                                    showToast("Moved note to Recycle Bin")
+                                                } else {
+                                                    vm.hideDesktopIcon(sc.id)
+                                                    showToast("Removed ${sc.label} shortcut")
+                                                }
+                                                return@detectDragGestures
+                                            }
+                                        }
+                                        val snapC = ((dragX - 6f) / cellW).roundToInt().coerceIn(0, maxCols - 1)
+                                        val snapR = ((dragY - 8f) / cellH).roundToInt().coerceIn(0, maxRows - 1)
+                                        val nx = 6f + snapC * cellW
+                                        val ny = 8f + snapR * cellH
+                                        dragX = nx
+                                        dragY = ny
+                                        vm.setIconPos(sc.id, nx, ny)
+                                    },
+                                    onDragCancel = {
+                                        isDragging = false
+                                        dragX = ix; dragY = iy
+                                    }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    dragX = (dragX + dragAmount.x / density.density).coerceIn(0f, boundsW - 74f)
+                                    dragY = (dragY + dragAmount.y / density.density).coerceIn(0f, boundsH - 76f)
+                                }
+                            },
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .background(if (selectedIconId == sc.id) Color(0x44000080) else Color.Transparent)
+                                .padding(vertical = 3.dp, horizontal = 2.dp)
+                        ) {
+                            Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                                PixelIcon(sc.icon, 36.dp)
+                                if (sc.badgeCount > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 3.dp, y = (-2).dp)
+                                            .background(Color(0xFFE67FA2))
+                                            .border(1.5.dp, Color.Black)
+                                            .padding(horizontal = 4.dp, vertical = 0.5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (sc.badgeCount > 99) "99+" else sc.badgeCount.toString(),
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 9.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = sc.label,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .background(if (selectedIconId == sc.id) theme.titleBarActive else Color(0x55000000))
+                                    .padding(horizontal = 3.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Interactive Desk Cat (OFF by default, sits on taskbar with gravity)
+                DeskCat(vm = vm, boundsW = boundsW, boundsH = boundsH)
+
+                // Open Application Windows
+                vm.windows.values.filter { it.isOpen && !it.isMinimized }.sortedBy { it.zIndex }.forEach { win ->
+                    val iconName = when {
+                        win.id.startsWith("note:") -> "note"
+                        win.id == "explorer" -> "computer"
+                        win.id == "gallery" -> "gallery"
+                        win.id == "music" -> "music"
+                        win.id == "calendar" -> "calendar"
+                        win.id == "reminders" -> "reminder"
+                        win.id == "habits" -> "habit"
+                        win.id == "paint" -> "paint"
+                        win.id == "recorder" -> "recorder"
+                        win.id == "recycle" -> "recycle"
+                        win.id == "settings" -> "settings"
+                        win.id == "status" -> "status"
+                        win.id == "sweeper" -> "sweeper"
+                        win.id == "browser" -> "ie"
+                        win.id == "mail" -> "mail"
+                        win.id == "calc" -> "calc"
+                        win.id == "terminal" -> "terminal"
+                        win.id == "run" -> "run"
+                        win.id == "taskmgr" -> "taskmgr"
+                        else -> "note"
+                    }
+                    RetroWindow(
+                        vm = vm,
+                        win = win,
+                        boundsWidthDp = boundsW,
+                        boundsHeightDp = boundsH,
+                        icon = iconName,
+                        accentTitleBar = win.id == "sweeper"
+                    ) {
+                        when {
+                            win.id.startsWith("note:") -> {
+                                val noteId = win.id.removePrefix("note:")
+                                val note = vm.notes.find { it.id == noteId }
+                                if (note != null) NoteWindowContent(vm, note)
+                            }
+                            win.id == "explorer" -> FileExplorerContent(vm)
+                            win.id == "gallery" -> GalleryWindow(vm, theme)
+                            win.id == "music" -> MusicPlayerWindow(vm, theme)
+                            win.id == "calendar" -> CalendarContent(vm)
+                            win.id == "reminders" -> RemindersContent(vm)
+                            win.id == "habits" -> TodoListContent(vm)
+                            win.id == "paint" -> MsPaintWindow(vm, theme)
+                            win.id == "recorder" -> SoundRecorderWindow(vm, theme)
+                            win.id == "recycle" -> RecycleBinContent(vm)
+                            win.id == "settings" -> SettingsWindow(vm, theme)
+                            win.id == "status" -> SystemUpdatesWindow(vm, theme)
+                            win.id == "sweeper" -> HeartSweeperWindow(vm, theme)
+                            win.id == "browser" -> BrowserWindow(vm, theme)
+                            win.id == "mail" -> EmailWindow(vm, theme)
+                            win.id == "calc" -> CalculatorWindow(vm, theme)
+                            win.id == "terminal" -> TerminalWindow(vm, theme)
+                            win.id == "run" -> RunDialogWindow(vm, theme)
+                            win.id == "taskmgr" -> TaskManagerWindow(vm, theme)
+                        }
+                    }
+                }
+
+                // Reminder Popups
+                val activePopup = vm.reminders.firstOrNull { it.showPopup }
+                if (activePopup != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .zIndex(950f)
+                            .width(260.dp)
+                            .win98Bevel(sunken = false, bg = theme.windowBg)
+                            .padding(8.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(theme.titleBarActive)
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text("Reminder!", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
+                            }
+                            Text(activePopup.title, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textPrimary)
+                            if (activePopup.message.isNotBlank()) {
+                                Text(activePopup.message, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = theme.textSecondary)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                RetroButton(label = "OK", palette = theme, active = true, onClick = { vm.dismissReminderPopup(activePopup.id) })
+                            }
+                        }
+                    }
+                }
+
+                // Opt-in "You've Got Mail!" Popup
+                val mailAlert = vm.mailPopupAlert
+                if (mailAlert != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(12.dp)
+                            .zIndex(960f)
+                            .width(240.dp)
+                            .win98Bevel(sunken = false, bg = theme.windowBg)
+                            .padding(8.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                PixelIcon("mail", 18.dp)
+                                Text("You've Got Mail!", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = theme.accentPink)
+                            }
+                            Text(mailAlert.subject, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 10.sp, color = theme.textPrimary)
+                            Text("From: ${mailAlert.sender}", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = theme.textSecondary)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                RetroButton(label = "Open Mail", palette = theme, onClick = {
+                                    vm.dismissMailPopup()
+                                    vm.openWindow("mail")
+                                })
+                                Spacer(Modifier.width(4.dp))
+                                RetroButton(label = "Dismiss", palette = theme, onClick = { vm.dismissMailPopup() })
+                            }
+                        }
+                    }
+                }
+
+                // Icon Long-Press Context Menu
+                if (contextMenuIconId != null) {
+                    val target = allShortcuts.find { it.id == contextMenuIconId }
+                    if (target != null) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .zIndex(970f)
+                                .width(170.dp)
+                                .win98Bevel(sunken = false, bg = theme.windowBg)
+                                .padding(4.dp)
+                        ) {
+                            Text(target.label, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 10.sp, color = theme.textSecondary, modifier = Modifier.padding(4.dp))
+                            StartRow("Open", target.icon, theme) {
+                                contextMenuIconId = null
+                                if (target.windowId != null) vm.openWindow(target.windowId)
+                                else if (target.noteId != null) vm.openWindow("note:${target.noteId}", target.label)
+                            }
+                            if (target.id != "icon-recycle") {
+                                StartRow(if (target.noteId != null) "Delete Note" else "Hide from Desktop", "recycle", theme) {
+                                    contextMenuIconId = null
+                                    if (target.noteId != null) vm.deleteNote(target.noteId) else vm.hideDesktopIcon(target.id)
+                                }
+                            }
+                            StartRow("Auto-Arrange Icons", "settings", theme) {
+                                contextMenuIconId = null
+                                vm.resetIconPositions()
+                            }
+                        }
+                    }
+                }
+
+                // Empty Desktop Long-Press Menu
+                if (showDesktopMenu) {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .zIndex(970f)
+                            .width(180.dp)
+                            .win98Bevel(sunken = false, bg = theme.windowBg)
+                            .padding(4.dp)
+                    ) {
+                        StartRow("New Desktop Note", "note", theme) {
+                            showDesktopMenu = false
+                            vm.createNote(pinned = true)
+                        }
+                        if (vm.clipboard != null) {
+                            StartRow("Paste to Desktop", "note", theme) {
+                                showDesktopMenu = false
+                                vm.pasteFromClipboard("root-notes", pinOnDesktop = true)
+                            }
+                        }
+                        StartRow("Auto-Arrange Icons", "computer", theme) {
+                            showDesktopMenu = false
+                            vm.resetIconPositions()
+                        }
+                        StartRow("Display Properties", "settings", theme) {
+                            showDesktopMenu = false
+                            vm.openWindow("settings")
+                        }
+                    }
+                }
+
+                // Start Menu with Cascading Submenus Aligned Next to Active Row
+                if (startMenuOpen) {
+                    val programsList = listOf(
+                        StartMenuEntry("MS Paint", "paint", "icon-paint") { vm.openWindow("paint") },
+                        StartMenuEntry("Calculator", "calc", "icon-calc") { vm.openWindow("calc") },
+                        StartMenuEntry("Internet", "ie", "icon-browser") { vm.openWindow("browser") },
+                        StartMenuEntry("E-mail", "mail", "icon-mail") { vm.openWindow("mail") },
+                        StartMenuEntry("Music Player", "music", "icon-music") { vm.openWindow("music") },
+                        StartMenuEntry("Sound Recorder", "recorder", "icon-recorder") { vm.openWindow("recorder") },
+                        StartMenuEntry("Calendar", "calendar", "icon-calendar") { vm.openWindow("calendar") },
+                        StartMenuEntry("Reminders", "reminder", "icon-reminders") { vm.openWindow("reminders") },
+                        StartMenuEntry("To do list", "habit", "icon-habits") { vm.openWindow("habits") }
+                    )
+                    val docsList = listOf(
+                        StartMenuEntry("New Note", "note") { vm.createNote(pinned = true) },
+                        StartMenuEntry("My Computer", "computer", "icon-explorer") { vm.openWindow("explorer") },
+                        StartMenuEntry("My Pictures", "gallery", "icon-gallery") { vm.openWindow("gallery") }
+                    )
+                    val gamesList = listOf(
+                        StartMenuEntry("HeartSweeper", "sweeper", "icon-sweeper") { vm.openWindow("sweeper") }
+                    )
+                    val settingsList = listOf(
+                        StartMenuEntry("Display", "settings", "icon-settings") { vm.openWindow("settings") },
+                        StartMenuEntry("Updates", "status", "icon-status") { vm.openWindow("status") },
+                        StartMenuEntry(if (vm.deskCatEnabled) "Hide Desk Cat" else "Summon Desk Cat", "cat") {
+                            vm.deskCatEnabled = !vm.deskCatEnabled
+                            vm.persist()
+                        }
+                    )
+
+                    val activeEntries = when (activeSubmenu) {
+                        "programs" -> programsList
+                        "documents" -> docsList
+                        "games" -> gamesList
+                        "settings" -> settingsList
+                        else -> null
+                    }
+                    // Align submenu next to the opened row (measured from bottom of Start Menu!)
+                    val submenuBottomOffset = when (activeSubmenu) {
+                        "programs" -> 108.dp
+                        "documents" -> 124.dp
+                        "games" -> 104.dp
+                        "settings" -> 76.dp
+                        else -> 0.dp
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .zIndex(980f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .width(194.dp)
+                                .win98Bevel(sunken = false, bg = theme.windowBg)
+                                .padding(2.dp)
+                        ) {
+                            // Classic vertical RetroVibe OS banner
+                            Box(
+                                modifier = Modifier
+                                    .width(24.dp)
+                                    .height(232.dp)
+                                    .background(Brush.verticalGradient(listOf(theme.titleBarActive, theme.titleBarAccent))),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                Text(
+                                    text = "RetroVibe OS",
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.rotate(-90f).padding(start = 42.dp)
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                StartRow("Programs  >", "folder", theme, activeSubmenu == "programs") {
+                                    activeSubmenu = if (activeSubmenu == "programs") null else "programs"
+                                }
+                                StartRow("Documents >", "note", theme, activeSubmenu == "documents") {
+                                    activeSubmenu = if (activeSubmenu == "documents") null else "documents"
+                                }
+                                StartRow("Games     >", "sweeper", theme, activeSubmenu == "games") {
+                                    activeSubmenu = if (activeSubmenu == "games") null else "games"
+                                }
+                                StartRow("Settings  >", "settings", theme, activeSubmenu == "settings") {
+                                    activeSubmenu = if (activeSubmenu == "settings") null else "settings"
+                                }
+                                Box(Modifier.fillMaxWidth().height(1.dp).background(theme.borderDark).padding(vertical = 2.dp))
+                                StartRow("Run...", "run", theme) {
+                                    startMenuOpen = false; activeSubmenu = null
+                                    vm.openWindow("run")
+                                }
+                                StartRow("Task Manager", "taskmgr", theme) {
+                                    startMenuOpen = false; activeSubmenu = null
+                                    vm.openWindow("taskmgr")
+                                }
+                                Box(Modifier.fillMaxWidth().height(1.dp).background(theme.borderDark).padding(vertical = 2.dp))
+                                StartRow("Shut Down...", "shutdown", theme) {
+                                    startMenuOpen = false; activeSubmenu = null
+                                    showShutdownDialog = true
+                                }
+                            }
+                        }
+
+                        // Cascading submenu aligned beside the active row
+                        if (activeEntries != null) {
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .offset(x = 192.dp, y = -submenuBottomOffset)
+                                    .width(168.dp)
+                                    .win98Bevel(sunken = false, bg = theme.windowBg)
+                                    .padding(3.dp)
+                            ) {
+                                activeEntries.forEach { entry ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                startMenuOpen = false
+                                                activeSubmenu = null
+                                                entry.action()
+                                            }
+                                            .padding(horizontal = 5.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        PixelIcon(entry.icon, 16.dp)
+                                        Text(
+                                            text = entry.label,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = theme.textPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        if (entry.desktopIconId != null && entry.desktopIconId in vm.hiddenDesktopIcons) {
+                                            Text(
+                                                text = "[+]",
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = theme.accentPink,
+                                                modifier = Modifier.clickable {
+                                                    vm.showDesktopIcon(entry.desktopIconId)
+                                                    showToast("Pinned ${entry.label} to Desktop!")
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Toast banner
+                if (toastMsg != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 8.dp)
+                            .zIndex(990f)
+                            .win98Bevel(sunken = false, bg = theme.windowBg)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(toastMsg!!, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                    }
+                }
+
+                // Shut Down Dialog
+                if (showShutdownDialog) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zIndex(995f)
+                            .background(Color(0x66000000)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .width(270.dp)
+                                .win98Bevel(sunken = false, bg = theme.windowBg)
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(theme.titleBarActive)
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                            ) {
+                                Text("Shut Down RetroVibe OS", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
+                            }
+                            Text("What do you want RetroVibe OS to do?", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = theme.textPrimary)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                                RetroButton(label = "Shut Down", palette = theme, active = true, onClick = {
+                                    RetroSoundEngine.play(RetroSound.SHUTDOWN, vm.soundEnabled)
+                                    showShutdownDialog = false
+                                    poweredOff = true
+                                })
+                                RetroButton(label = "Restart", palette = theme, onClick = {
+                                    RetroSoundEngine.play(RetroSound.SHUTDOWN, vm.soundEnabled)
+                                    showShutdownDialog = false
+                                    booted = false
+                                })
+                                RetroButton(label = "Cancel", palette = theme, onClick = { showShutdownDialog = false })
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Win98 Bottom Taskbar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .background(theme.taskbarBg)
+                    .win98Bevel(true, theme.borderLight, theme.borderDark, theme.borderDeep, 2.dp)
+                    .padding(horizontal = 4.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Start Button
+                RetroButton(
+                    theme = theme,
+                    soundEnabled = vm.soundEnabled,
+                    active = startMenuOpen,
+                    onClick = {
+                        startMenuOpen = !startMenuOpen
+                        activeSubmenu = null
+                    }
+                ) {
+                    PixelIcon("winFlag", 15.dp)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Start", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 11.sp, color = theme.textPrimary)
+                }
+
+                // Active Window Tabs
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    vm.windows.values.filter { it.isOpen }.forEach { win ->
+                        val active = vm.activeWindowId == win.id && !win.isMinimized
+                        RetroButton(
+                            label = win.title.take(14),
+                            palette = theme,
+                            active = active,
+                            onClick = {
+                                if (active) vm.minimizeWindow(win.id) else vm.focusWindow(win.id)
+                            }
+                        )
+                    }
+                }
+
+                // System Tray
+                Row(
+                    modifier = Modifier
+                        .win98Bevel(sunken = true, bg = theme.windowBg, strokeDp = 1.5.dp)
+                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(Modifier.clickable {
+                        vm.soundEnabled = !vm.soundEnabled
+                        vm.persist()
+                        showToast(if (vm.soundEnabled) "Sound: ON" else "Sound: Muted")
+                    }) {
+                        PixelIcon(if (vm.soundEnabled) "speaker" else "speakerMute", 14.dp)
+                    }
+                    Box(Modifier.clickable {
+                        vm.deskCatEnabled = !vm.deskCatEnabled
+                        vm.persist()
+                    }) {
+                        PixelIcon("cat", 14.dp)
+                    }
+                    Text(
+                        text = clockStr,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = theme.textPrimary,
+                        modifier = Modifier.clickable { vm.openWindow("calendar") }
+                    )
+                }
+            }
+        }
+
+        // Optional CRT Scanlines Overlay
+        if (vm.crtScanlines) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                var y = 0f
+                while (y < size.height) {
+                    drawLine(Color(0x1C000000), Offset(0f, y), Offset(size.width, y), strokeWidth = 1.5f)
+                    y += 4f
+                }
+            }
+        }
+
+        // Fullscreen Screensaver Overlay
+        if (vm.screensaverActive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(2000f)
+                    .clickable {
+                        vm.screensaverActive = false
+                        idleSeconds = 0
+                    }
+            ) {
+                ScreensaverCanvas(vm.screensaverId, modifier = Modifier.fillMaxSize())
+            }
+        }
+    }
+}
+
+@Composable
+private fun StartRow(
+    label: String,
+    icon: String,
+    theme: com.retrovibe.os.theme.RetroThemeColors,
+    selected: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (selected) theme.titleBarActive else Color.Transparent)
+            .clickable { onClick() }
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        PixelIcon(icon, 16.dp)
+        Text(
+            text = label,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            color = if (selected) Color.White else theme.textPrimary,
+            maxLines = 1
+        )
+    }
+}
