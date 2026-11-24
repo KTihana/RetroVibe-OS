@@ -18,38 +18,78 @@
 
 #### `01. Pastel Denim Theme`
 
-| Desktop & Spooks | Display Properties & 3D Maze |
-| :---: | :---: |
-| <img src="assets/screenshots/01_denim_desktop.jpg" alt="Pastel Denim Desktop" width="290" /> | <img src="assets/screenshots/02_denim_display_maze.jpg" alt="Display Properties in Pastel Denim" width="290" /> |
-| **Home Desktop** — Handcrafted 32×32 pixel icons with **Spooks** (fluffy black cat with green eyes) relaxing on the taskbar. | **Display Properties** — Live **3D Brick Maze** preview inside the CRT monitor with **Mindi** (ginger cat) watching below. |
-
----
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <strong>Desktop &amp; Spooks</strong><br/><br/>
+      <img src="assets/screenshots/01_denim_desktop.jpg" alt="Pastel Denim Desktop" width="280" /><br/><br/>
+      Handcrafted 32×32 pixel icons with <strong>Spooks</strong> (fluffy black cat with green eyes) relaxing on the taskbar.
+    </td>
+    <td align="center" width="50%">
+      <strong>Display Properties &amp; 3D Maze</strong><br/><br/>
+      <img src="assets/screenshots/02_denim_display_maze.jpg" alt="Display Properties in Pastel Denim" width="280" /><br/><br/>
+      Live <strong>3D Brick Maze</strong> preview inside the CRT monitor with <strong>Mindi</strong> (ginger cat) watching below.
+    </td>
+  </tr>
+</table>
 
 #### `02. Y2K Strawberry Milk Theme`
 
-| Multitasking: Mail, Pictures & Music | Calendar & To-Do List |
-| :---: | :---: |
-| <img src="assets/screenshots/03_pink_multitask.jpg" alt="Mail, Pictures & Music" width="290" /> | <img src="assets/screenshots/04_pink_calendar_todo.jpg" alt="Calendar & To do list" width="290" /> |
-| **Draggable Windows** — Run **RetroVibe Express Mail**, **My Pictures**, and the **Music Player (`Playlist.wpl`)** side by side. | **Daily Planning** — Stamp special days with pixel stickers on **Calendar** and check off tasks with the retro **To do list** progress bar. |
-
-| MS Paint & Purring Mindi | HeartSweeper |
-| :---: | :---: |
-| <img src="assets/screenshots/05_pink_paint_mindi.jpg" alt="MS Paint & Mindi" width="290" /> | <img src="assets/screenshots/06_pink_heartsweeper.jpg" alt="HeartSweeper" width="290" /> |
-| **MS Paint** — Classic 16-tool drawing app with flood fill, opaque/transparent selection, and 28-color palette—plus **Mindi** purring when you pet him. | **HeartSweeper** — Custom heart-shaped Minesweeper built for phones with long-press flagging, zoom, and smart chording. |
-
----
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <strong>Multitasking: Mail, Pictures &amp; Music</strong><br/><br/>
+      <img src="assets/screenshots/03_pink_multitask.jpg" alt="Mail, Pictures &amp; Music" width="280" /><br/><br/>
+      Run <strong>RetroVibe Express Mail</strong>, <strong>My Pictures</strong>, and the <strong>Music Player</strong> side by side.
+    </td>
+    <td align="center" width="50%">
+      <strong>Calendar &amp; To-Do List</strong><br/><br/>
+      <img src="assets/screenshots/04_pink_calendar_todo.jpg" alt="Calendar &amp; To do list" width="280" /><br/><br/>
+      Stamp special days with pixel stickers on <strong>Calendar</strong> and check off tasks on <strong>To do list</strong>.
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <strong>MS Paint &amp; Purring Mindi</strong><br/><br/>
+      <img src="assets/screenshots/05_pink_paint_mindi.jpg" alt="MS Paint &amp; Mindi" width="280" /><br/><br/>
+      Classic 16-tool <strong>MS Paint</strong> with flood fill, opaque/transparent select &amp; 28 colors—plus <strong>Mindi</strong> purring when petted.
+    </td>
+    <td align="center" width="50%">
+      <strong>HeartSweeper</strong><br/><br/>
+      <img src="assets/screenshots/06_pink_heartsweeper.jpg" alt="HeartSweeper" width="280" /><br/><br/>
+      Custom heart-shaped Minesweeper built for phones with long-press flagging, zoom, and smart chording.
+    </td>
+  </tr>
+</table>
 
 #### `03. Classic Win98 Teal Theme`
 
-| Pinned Desktop Notes & Start Menu | Classic Win98 Display & Screensavers |
-| :---: | :---: |
-| <img src="assets/screenshots/07_teal_notes_start.jpg" alt="Notes & Start Menu" width="290" /> | <img src="assets/screenshots/08_teal_display_maze.jpg" alt="Win98 Teal Display Properties" width="290" /> |
-| **Notes & Start Menu** — Pin sticky `.txt` notes straight onto the desktop and browse apps from the classic cascading **Start** menu. | **Retro Screensavers** — Switch between **Flying Toasters**, **3D Pipes**, **3D Maze**, **Starfield**, and **Flying Hearts** with live monitor previews. |
-
-| Internet Explorer Homepage | Live Web Browsing |
-| :---: | :---: |
-| <img src="assets/screenshots/09_teal_ie_home.jpg" alt="Internet Explorer Home" width="290" /> | <img src="assets/screenshots/10_teal_ie_search.jpg" alt="Internet Explorer Search" width="290" /> |
-| **Internet Explorer** — Nostalgic browser start screen with Favorites and address bar. | **Surf the Web** — Search and browse real websites right inside a classic Windows 98 window. |
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <strong>Pinned Notes &amp; Start Menu</strong><br/><br/>
+      <img src="assets/screenshots/07_teal_notes_start.jpg" alt="Notes &amp; Start Menu" width="280" /><br/><br/>
+      Pin sticky <code>.txt</code> notes straight onto the desktop and browse apps from the classic cascading <strong>Start</strong> menu.
+    </td>
+    <td align="center" width="50%">
+      <strong>Display &amp; Screensavers</strong><br/><br/>
+      <img src="assets/screenshots/08_teal_display_maze.jpg" alt="Win98 Teal Display Properties" width="280" /><br/><br/>
+      Switch between <strong>Flying Toasters</strong>, <strong>3D Pipes</strong>, <strong>3D Maze</strong>, <strong>Starfield</strong>, and <strong>Flying Hearts</strong>.
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <strong>Internet Explorer Homepage</strong><br/><br/>
+      <img src="assets/screenshots/09_teal_ie_home.jpg" alt="Internet Explorer Home" width="280" /><br/><br/>
+      Nostalgic browser start screen with Favorites and classic Win98 address bar.
+    </td>
+    <td align="center" width="50%">
+      <strong>Live Web Browsing</strong><br/><br/>
+      <img src="assets/screenshots/10_teal_ie_search.jpg" alt="Internet Explorer Search" width="280" /><br/><br/>
+      Search and browse real websites right inside a classic Windows 98 window.
+    </td>
+  </tr>
+</table>
 
 ---
 
