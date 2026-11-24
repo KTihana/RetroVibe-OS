@@ -1,5 +1,6 @@
 package com.retrovibe.os.ui
 
+import android.app.Activity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -117,16 +119,18 @@ fun DesktopScreen(vm: OSViewModel) {
         return
     }
 
-    // Power-off screen
+    // Power-off screen: show classic Win98 message briefly, then exit the app!
     if (poweredOff) {
+        val activity = LocalContext.current as? Activity
+        LaunchedEffect(Unit) {
+            delay(2200)
+            activity?.finishAffinity()
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .clickable {
-                    poweredOff = false
-                    booted = false
-                },
+                .clickable { activity?.finishAffinity() },
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -139,7 +143,7 @@ fun DesktopScreen(vm: OSViewModel) {
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "(Tap anywhere to power back on)",
+                    text = "(Closing RetroVibe OS...)",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     color = Color(0xFFAA5500)
