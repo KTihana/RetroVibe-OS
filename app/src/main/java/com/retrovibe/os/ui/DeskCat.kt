@@ -34,38 +34,108 @@ private val CAT_PALETTE = mapOf(
     'o' to Color(0xFFF4B878),
     'l' to Color(0xFFFFE2BD),
     'd' to Color(0xFFD18D4B),
-    'p' to Color(0xFFF28FA8)
+    'p' to Color(0xFFF28FA8),
+    'w' to Color(0xFFFFFFFF),
+    'e' to Color(0xFF1C1824),
+    'f' to Color(0xFF6FB7E8),
+    'z' to Color(0xFF4A6FD0)
 )
 
 private val CAT_IDLE_1 = listOf(
-    "................", "..kk........kk..", ".kpok......kopk.", ".koookkkkkkoook.",
-    ".kooooooooooook.", ".kookoookoookok.", ".kooopoooopoook.", ".kooooookoooook.",
-    "..kllllllllllk..", "..koooooooooook.", ".kooooooooooook.", ".kdoooooooooodk.",
-    ".kdoooooooooodkk", ".kkllkkkkkkllkkk", "..kkkkkkkkkkkk..", "................"
+    "................",
+    "..kk........kk..",
+    ".kopk......kpok.",
+    ".kooooooooooook.",
+    ".kooodoooodoook.",
+    ".kooeeooooeeook.",
+    ".kooewooooewook.",
+    ".kooollpplloook.",
+    ".kooolkllkloook.",
+    "..kllllllllllk..",
+    "..kooolllloook.k",
+    "..kdoooooooodkok",
+    "..kdoooooooodkok",
+    ".kllkooooookllkk",
+    ".kkkkkkkkkkkkkk.",
+    "................"
 )
 
 private val CAT_IDLE_2 = listOf(
-    "................", "..kk........kk..", ".kpok......kopk.", ".koookkkkkkoook.",
-    ".kooooooooooook.", ".kookoookoookok.", ".kooopoooopoook.", ".kooooookoooook.",
-    "..kllllllllllk..", "..koooooooooook.", ".kooooooooooook.", ".kdoooooooooodkk",
-    ".kdoooooooooodk.", ".kkllkkkkkkllkk.", "..kkkkkkkkkkkk..", "................"
+    "................",
+    "..kk........kk..",
+    ".kopk......kpok.",
+    ".kooooooooooook.",
+    ".kooodoooodoook.",
+    ".kooooooooooook.",
+    ".kookkooookkook.",
+    ".kooollpplloook.",
+    ".kooolkllkloook.",
+    "..kllllllllllk.k",
+    "..kooolllloookok",
+    "..kdoooooooodkok",
+    "..kdoooooooodkok",
+    ".kllkooooookllkk",
+    ".kkkkkkkkkkkkkk.",
+    "................"
 )
 
-private val CAT_HAPPY = listOf(
-    "......p..p......", "..kk.pppppp.kk..", ".kpok..pp..kopk.", ".koookkkkkkoook.",
-    ".kooooooooooook.", ".kokokooookokok.", ".kooopoooopoook.", ".kooooppppooook.",
-    "..kllllllllllk..", "..koooooooooook.", ".kooooooooooook.", ".kdoooooooooodkk",
-    ".kdoooooooooodk.", ".kkllkkkkkkllkk.", "..kkkkkkkkkkkk..", "................"
+private val CAT_PURR = listOf(
+    "......p..p......",
+    "..kk...pp...kk..",
+    ".kopk......kpok.",
+    ".kooooooooooook.",
+    ".kooodoooodoook.",
+    ".kookkooookkook.",
+    ".kopoooooooopok.",
+    ".kopollppllopok.",
+    ".kooolkllkloook.",
+    "..kllllllllllk.k",
+    "..kooolllloookok",
+    "..kdoooooooodkok",
+    "..kdoooooooodkok",
+    ".kllkooooookllkk",
+    ".kkkkkkkkkkkkkk.",
+    "................"
+)
+
+private val CAT_EAT = listOf(
+    "................",
+    "..kk........kk..",
+    ".kopk......kpok.",
+    ".kooooooooooook.",
+    ".kooodoooodoook.",
+    ".kooeeooooeeook.",
+    ".kooewooooewook.",
+    ".kooollpplloook.",
+    ".kooolkkkkloook.",
+    "..kllllppllllk.k",
+    "..kooolllloookok",
+    "..kdkkkkkkkodkok",
+    "..kkfffffwfkk...",
+    ".kllkkkkkkkkllkk",
+    ".kkkkkkkkkkkkkk.",
+    "................"
 )
 
 private val CAT_SLEEP = listOf(
-    "...........k.k..", "............k...", "................", "................",
-    "..kk......kk....", ".kpokkkkkkopk...", ".koooooooooook..", ".kokkkoookkkok..",
-    ".kooopoooopook..", ".klllllllllllk..", "koooooooooooook.", "kdooooooooooodkk",
-    ".kddddddddddddk.", ".kkkkkkkkkkkkkk.", "................", "................"
+    "...........zzz..",
+    ".............z..",
+    "...........zzz..",
+    "..kk........kk..",
+    ".kopk......kpok.",
+    ".kooooooooooook.",
+    ".kooodoooodoook.",
+    ".kookkooookkook.",
+    ".kooooooooooook.",
+    ".kooollpplloook.",
+    ".kooolkllkloook.",
+    "..kllllllllllk..",
+    "..kooolllloook..",
+    ".kllkooooookllk.",
+    ".kkkkkkkkkkkkkk.",
+    "................"
 )
 
-private val MEOWS = listOf("meow!", "purrrr...", "pet me!", "cozy vibe", "snack time?")
 
 @Composable
 fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
@@ -105,11 +175,11 @@ fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
 
     fun pet() {
         RetroSoundEngine.play(RetroSound.PURR, vm.soundEnabled)
-        mood = "happy"
-        showMsg(MEOWS.random())
+        mood = "purr"
+        showMsg("Purrr...")
         scope.launch {
             delay(2000)
-            if (mood == "happy") mood = "idle"
+            if (mood == "purr") mood = "idle"
         }
     }
 
@@ -140,7 +210,8 @@ fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
 
     val sprite = when (mood) {
         "sleep" -> CAT_SLEEP
-        "happy" -> CAT_HAPPY
+        "purr" -> CAT_PURR
+        "eat" -> CAT_EAT
         else -> if (frame == 0) CAT_IDLE_1 else CAT_IDLE_2
     }
 
@@ -220,14 +291,14 @@ fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
                     CatMenuRow("Feed Treat", theme.textPrimary) {
                         menuOpen = false
                         RetroSoundEngine.play(RetroSound.PURR, vm.soundEnabled)
-                        mood = "happy"
-                        showMsg("yum! fish!")
-                        scope.launch { delay(2000); mood = "idle" }
+                        mood = "eat"
+                        showMsg("Yummy!")
+                        scope.launch { delay(2400); if (mood == "eat") mood = "idle" }
                     }
                     CatMenuRow(if (mood == "sleep") "Wake Up" else "Take a Nap", theme.textPrimary) {
                         menuOpen = false
                         mood = if (mood == "sleep") "idle" else "sleep"
-                        showMsg(if (mood == "sleep") "zzz..." else "awake!")
+                        showMsg(if (mood == "sleep") "Zzz..." else "Meow!")
                     }
                     CatMenuRow("Remove Cat", Color(0xFFB01237)) {
                         menuOpen = false
