@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="assets/win98-banner.svg" alt="RetroVibe OS" width="820" />
+  <img src="assets/banner.svg" alt="RetroVibe OS" width="820" />
 </p>
 
 <p align="center">
-  <img src="assets/win98-about.svg" alt="About RetroVibe OS" width="820" />
+  <img src="assets/about.svg" alt="About RetroVibe OS" width="820" />
 </p>
 
 <p align="center">
   <a href="https://github.com/KTihana/RetroVibe-OS/releases/latest/download/RetroVibe-OS.apk">
-    <img src="assets/win98-download-btn.svg" alt="Download RetroVibe OS (.APK)" width="382" />
+    <img src="assets/download-btn.svg" alt="Download RetroVibe OS (.APK)" width="540" />
   </a>
 </p>
 
@@ -94,7 +94,7 @@
 ---
 
 <p align="center">
-  <img src="assets/win98-programs.svg" alt="RetroVibe OS Included Programs" width="820" />
+  <img src="assets/programs.svg" alt="RetroVibe OS Included Programs" width="820" />
 </p>
 
 <p align="center">

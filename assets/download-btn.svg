@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="114" viewBox="0 0 540 114">
+  <defs>
+    <linearGradient id="btnBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2E4C89"/>
+      <stop offset="100%" stop-color="#D99AA8"/>
+    </linearGradient>
+    <linearGradient id="pillGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFB8CE"/>
+      <stop offset="100%" stop-color="#E67EA0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Big, bold floating RETROVIBE_SETUP.EXE Download Button (100% transparent backdrop) -->
+  <g transform="translate(4, 4)">
+    <!-- Soft Drop Shadow -->
+    <rect x="6" y="6" width="526" height="100" fill="#24232B" fill-opacity="0.30"/>
+
+    <!-- Outer Win98 Window Frame -->
+    <rect x="0" y="0" width="526" height="100" fill="#ECE6DA"/>
+    <!-- 3D Raised Bevel -->
+    <rect x="0" y="0" width="526" height="3" fill="#FFFFFF"/>
+    <rect x="0" y="0" width="3" height="100" fill="#FFFFFF"/>
+    <rect x="0" y="97" width="526" height="3" fill="#24232B"/>
+    <rect x="523" y="0" width="3" height="100" fill="#24232B"/>
+    <rect x="3" y="94" width="520" height="3" fill="#8C867A"/>
+    <rect x="520" y="3" width="3" height="94" fill="#8C867A"/>
+
+    <!-- Gradient Title Bar -->
+    <rect x="6" y="6" width="514" height="22" fill="url(#btnBar)"/>
+    <text x="14" y="21" font-family="'Courier New', Courier, monospace" font-size="12.5" font-weight="bold" fill="#FFFFFF">RETROVIBE_SETUP.EXE</text>
+    <!-- Titlebar Controls -->
+    <g transform="translate(468, 9.5)">
+      <rect width="14" height="14" fill="#ECE6DA" stroke="#24232B" stroke-width="1.2"/>
+      <rect x="3" y="9.5" width="8" height="2" fill="#24232B"/>
+      <rect x="17" width="14" height="14" fill="#ECE6DA" stroke="#24232B" stroke-width="1.2"/>
+      <rect x="20" y="3" width="8" height="7" fill="none" stroke="#24232B" stroke-width="1.4"/>
+      <rect x="34" width="14" height="14" fill="#ECE6DA" stroke="#24232B" stroke-width="1.2"/>
+      <text x="37.5" y="12" font-family="'Courier New', monospace" font-size="12" font-weight="bold" fill="#24232B">×</text>
+    </g>
+
+    <!-- Big Detailed Pixel Floppy Disk Icon -->
+    <g transform="translate(18, 37)">
+      <rect x="0" y="0" width="48" height="48" rx="3" fill="#6486C8" stroke="#101228" stroke-width="3"/>
+      <rect x="3" y="3" width="4" height="42" fill="#8EB2EE"/>
+      <rect x="13" y="1.5" width="22" height="17" fill="#D2DCE6" stroke="#101228" stroke-width="2.5"/>
+      <rect x="15" y="3" width="5" height="14" fill="#FFFFFF"/>
+      <rect x="25" y="5" width="6" height="10" fill="#6486C8" stroke="#101228" stroke-width="2"/>
+      <rect x="8" y="24" width="32" height="22" fill="#FFF7DC" stroke="#101228" stroke-width="2.5"/>
+      <rect x="9.5" y="33" width="29" height="12" fill="#F0728C"/>
+      <rect x="20" y="26.5" width="3.5" height="3.5" fill="#E84474"/>
+      <rect x="24.5" y="26.5" width="3.5" height="3.5" fill="#E84474"/>
+      <rect x="20" y="28.5" width="8" height="2.5" fill="#E84474"/>
+      <rect x="22" y="31" width="4" height="2" fill="#E84474"/>
+    </g>
+
+    <!-- Bold Main Label -->
+    <text x="82" y="57" font-family="'Courier New', Courier, monospace" font-size="19" font-weight="bold" fill="#24232B">Download RetroVibe OS</text>
+    <text x="82" y="77" font-family="'Courier New', Courier, monospace" font-size="13" font-weight="bold" fill="#5F5B54">Latest Signed Android APK · Free</text>
+
+    <!-- Prominent Raised Pastel-Pink Action Button -->
+    <g transform="translate(362, 40)">
+      <rect width="148" height="42" fill="url(#pillGrad)"/>
+      <rect width="148" height="2.5" fill="#FFFFFF"/>
+      <rect width="2.5" height="42" fill="#FFFFFF"/>
+      <rect y="39.5" width="148" height="2.5" fill="#24232B"/>
+      <rect x="145.5" width="2.5" height="42" fill="#24232B"/>
+      <rect x="2.5" y="37" width="143" height="2.5" fill="#A84A6A"/>
+      <rect x="143" y="2.5" width="2.5" height="37" fill="#A84A6A"/>
+      <text x="15" y="26.5" font-family="'Courier New', Courier, monospace" font-size="15" font-weight="bold" fill="#24232B">▼ GET .APK</text>
+    </g>
+  </g>
+</svg>
