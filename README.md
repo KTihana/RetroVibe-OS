@@ -38,9 +38,9 @@
 <table>
   <tr>
     <td align="center" width="50%">
-      <strong>Multitasking: Mail, Pictures &amp; Music</strong><br/><br/>
+      <strong>E-mail, My Pictures &amp; Music</strong><br/><br/>
       <img src="assets/screenshots/03_pink_multitask.jpg" alt="Mail, Pictures &amp; Music" width="280" /><br/><br/>
-      Run <strong>RetroVibe Express Mail</strong>, <strong>My Pictures</strong>, and the <strong>Music Player</strong> side by side.
+      Check your inbox in <strong>RetroVibe Express</strong>, view chosen photos in <strong>My Pictures</strong>, and listen to tracks in the <strong>Music Player</strong>.
     </td>
     <td align="center" width="50%">
       <strong>Calendar &amp; To-Do List</strong><br/><br/>
@@ -72,9 +72,9 @@
       Pin sticky <code>.txt</code> notes straight onto the desktop and browse apps from the classic cascading <strong>Start</strong> menu.
     </td>
     <td align="center" width="50%">
-      <strong>Display &amp; Screensavers</strong><br/><br/>
-      <img src="assets/screenshots/08_teal_display_maze.jpg" alt="Win98 Teal Display Properties" width="280" /><br/><br/>
-      Switch between <strong>Flying Toasters</strong>, <strong>3D Pipes</strong>, <strong>3D Maze</strong>, <strong>Starfield</strong>, and <strong>Flying Hearts</strong>.
+      <strong>My Computer &amp; Calculator</strong><br/><br/>
+      <img src="assets/screenshots/08_teal_explorer_calc.jpg" alt="My Computer &amp; Calculator" width="280" /><br/><br/>
+      Browse folders in <strong>C:\RETROVIBE\</strong> (notes, paint, voice memos, pictures &amp; music) and use the classic Win98 <strong>Calculator</strong>.
     </td>
   </tr>
   <tr>
