@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -105,15 +106,17 @@ fun SettingsWindow(vm: OSViewModel, palette: RetroPalette) {
                     ) {
                         Box(
                             modifier = Modifier
-                                .width(196.dp)
-                                .height(136.dp)
-                                .win98Bevel(sunken = false, bg = Color(0xFFD4D0C8))
-                                .padding(10.dp)
+                                .width(204.dp)
+                                .height(142.dp)
+                                .win98Bevel(sunken = false, bg = Color(0xFFDCD6C8))
+                                .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 14.dp)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .win98Bevel(sunken = true, bg = Color.Black)
+                                    .padding(2.dp)
+                                    .clipToBounds()
                             ) {
                                 if (vm.screensaverId == ScreensaverId.NONE) {
                                     Box(Modifier.fillMaxSize().background(palette.desktopBg))

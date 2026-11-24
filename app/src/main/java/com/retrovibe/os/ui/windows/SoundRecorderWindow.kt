@@ -34,6 +34,7 @@ import com.retrovibe.os.ui.win98Bevel
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlin.math.sin
+import kotlin.math.sqrt
 import com.retrovibe.os.theme.textDark
 import com.retrovibe.os.theme.accent
 
@@ -43,7 +44,8 @@ fun SoundRecorderWindow(vm: OSViewModel, palette: RetroPalette) {
     var isRecording by remember { mutableStateOf(false) }
     var elapsedSec by remember { mutableStateOf(0) }
     var playingId by remember { mutableStateOf<String?>(null) }
-    var phase by remember { mutableStateOf(0f) }
+    val ampHistory = remember { mutableStateListOf<Float>().apply { repeat(48) { add(0f) } } }
+    var waveTick by remember { mutableIntStateOf(0) }
     var statusMsg by remember { mutableStateOf("Ready") }
     var currentFile by remember { mutableStateOf<File?>(null) }
     val recorderRef = remember { mutableStateOf<MediaRecorder?>(null) }
@@ -119,9 +121,19 @@ fun SoundRecorderWindow(vm: OSViewModel, palette: RetroPalette) {
     }
 
     LaunchedEffect(isRecording) {
+        if (!isRecording) {
+            for (i in ampHistory.indices) ampHistory[i] = 0f
+            waveTick++
+            return@LaunchedEffect
+        }
         while (isRecording) {
-            delay(100)
-            phase += 0.55f
+            delay(50)
+            val raw = try { recorderRef.value?.maxAmplitude ?: 0 } catch (_: Throwable) { 0 }
+            // Responsive sqrt curve so normal speaking voice clearly animates the oscilloscope
+            val norm = sqrt((raw.coerceIn(0, 26000) / 26000f).toDouble()).toFloat().coerceIn(0.02f, 1f)
+            if (ampHistory.size >= 48) ampHistory.removeAt(0)
+            ampHistory.add(norm)
+            waveTick++
         }
     }
 
@@ -138,24 +150,39 @@ fun SoundRecorderWindow(vm: OSViewModel, palette: RetroPalette) {
             .background(palette.windowBg)
             .padding(8.dp)
     ) {
-        // Oscilloscope
+        // Voice-Reactive Win98 Phosphor Oscilloscope
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .win98Bevel(sunken = true, bg = Color(0xFF061006))
+                .height(68.dp)
+                .win98Bevel(sunken = true, bg = Color(0xFF061208))
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
+                @Suppress("UNUSED_VARIABLE") val _t = waveTick
                 val midY = size.height / 2f
-                val step = 6f
-                var x = 0f
-                var prev = Offset(0f, midY)
-                while (x < size.width) {
-                    val amp = if (isRecording) (sin((x * 0.06f + phase).toDouble()) * (size.height * 0.34f)).toFloat() else 0f
-                    val next = Offset(x, midY + amp)
-                    drawLine(Color(0xFF39FF14), prev, next, strokeWidth = 2f)
-                    prev = next
-                    x += step
+                // Subtle phosphor grid lines
+                drawLine(Color(0xFF103018), Offset(0f, midY), Offset(size.width, midY), strokeWidth = 1f)
+                drawLine(Color(0xFF0C2412), Offset(0f, midY * 0.5f), Offset(size.width, midY * 0.5f), strokeWidth = 1f)
+                drawLine(Color(0xFF0C2412), Offset(0f, midY * 1.5f), Offset(size.width, midY * 1.5f), strokeWidth = 1f)
+
+                if (isRecording && ampHistory.isNotEmpty()) {
+                    val count = ampHistory.size
+                    val dx = size.width / (count - 1).coerceAtLeast(1)
+                    var prev = Offset(0f, midY)
+                    for (i in 0 until count) {
+                        val level = ampHistory[i]
+                        // Alternate polarity + slight harmonic ripple for authentic audio waveform look
+                        val sign = if (i % 2 == 0) 1f else -1f
+                        val h = level * (size.height * 0.44f)
+                        val x = i * dx
+                        val next = Offset(x, midY + sign * h)
+                        // Vertical bar + connected waveform trace
+                        drawLine(Color(0xFF1E8A38), Offset(x, midY - h), Offset(x, midY + h), strokeWidth = (dx * 0.45f).coerceAtLeast(1.5f))
+                        drawLine(Color(0xFF4CFF50), prev, next, strokeWidth = 2f)
+                        prev = next
+                    }
+                } else {
+                    drawLine(Color(0xFF39FF14), Offset(0f, midY), Offset(size.width, midY), strokeWidth = 2f)
                 }
             }
             Text(

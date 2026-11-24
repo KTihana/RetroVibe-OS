@@ -56,7 +56,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     var screensaverId by mutableStateOf(ScreensaverId.TOASTERS)
     var screensaverWaitSec by mutableStateOf(0)
     var screensaverActive by mutableStateOf(false)
-    var crtScanlines by mutableStateOf(false)
+    var crtScanlines by mutableStateOf(true)
     var loginPromptEnabled by mutableStateOf(false)
     var username by mutableStateOf("RetroUser")
     var githubRepo by mutableStateOf("KTihana/RetroVibe-OS")
@@ -138,7 +138,11 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             calendarEntries = s.calendarEntries
-            reminders = s.reminders.map { it.copy(showPopup = false) }
+            val today = todayIso()
+            reminders = s.reminders.map { r ->
+                val isDue = !r.completed && r.dueDate.isNotBlank() && r.dueDate <= today && r.dismissedDate != today
+                r.copy(showPopup = isDue)
+            }
             todos = s.todos
             tracks = s.tracks
             voiceMemos = s.voiceMemos
@@ -344,23 +348,33 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // Reminders
-    fun addReminder(title: String, message: String, timeLabel: String) {
+    fun addReminder(title: String, message: String, dueDate: String, notifyEnabled: Boolean = false) {
         RetroSoundEngine.play(RetroSound.NOTIFY, soundEnabled)
-        reminders = listOf(
-            ReminderItem("rem-${System.currentTimeMillis()}", title.ifBlank { "Reminder" }, message, timeLabel, showPopup = true)
-        ) + reminders
+        val cleanDate = dueDate.ifBlank { todayIso() }
+        val isDueNow = cleanDate <= todayIso()
+        val item = ReminderItem(
+            id = "rem-${System.currentTimeMillis()}",
+            title = title.ifBlank { "Reminder" },
+            message = message,
+            timeLabel = cleanDate,
+            dueDate = cleanDate,
+            notifyEnabled = notifyEnabled,
+            showPopup = isDueNow
+        )
+        reminders = listOf(item) + reminders
         persist()
     }
 
     fun toggleReminder(id: String) {
         RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
-        reminders = reminders.map { if (it.id == id) it.copy(completed = !it.completed) else it }
+        reminders = reminders.map { if (it.id == id) it.copy(completed = !it.completed, showPopup = false) else it }
         persist()
     }
 
     fun dismissReminderPopup(id: String) {
         RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
-        reminders = reminders.map { if (it.id == id) it.copy(showPopup = false) else it }
+        val today = todayIso()
+        reminders = reminders.map { if (it.id == id) it.copy(showPopup = false, dismissedDate = today) else it }
         persist()
     }
 
@@ -386,6 +400,12 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     fun addPermittedPhotos(photos: List<PermittedPhoto>) {
         val existing = permittedPhotos.map { it.uri }.toSet()
         permittedPhotos = photos.filterNot { it.uri in existing } + permittedPhotos
+        persist()
+    }
+
+    fun removePermittedPhoto(id: String) {
+        RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        permittedPhotos = permittedPhotos.filterNot { it.id == id }
         persist()
     }
 

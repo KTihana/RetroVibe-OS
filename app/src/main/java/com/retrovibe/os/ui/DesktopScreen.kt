@@ -213,7 +213,7 @@ fun DesktopScreen(vm: OSViewModel) {
         DesktopShortcut("icon-habits", "To do list", "habit", "habits", badgeCount = pendingTodos),
         DesktopShortcut("icon-paint", "MS Paint", "paint", "paint"),
         DesktopShortcut("icon-browser", "Internet", "ie", "browser"),
-        DesktopShortcut("icon-mail", "E-mail", "mail", "mail", badgeCount = 2),
+        DesktopShortcut("icon-mail", "E-mail", "mail", "mail"),
         DesktopShortcut("icon-recycle", if (vm.trash.isEmpty()) "Recycle Bin" else "Recycle Bin", "recycle", "recycle", badgeCount = vm.trash.size),
         DesktopShortcut("icon-sweeper", "HeartSweeper", "sweeper", "sweeper"),
         DesktopShortcut("icon-calc", "Calculator", "calc", "calc"),
@@ -254,7 +254,9 @@ fun DesktopScreen(vm: OSViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .safeDrawingPadding()
+                .statusBarsPadding()
+                .displayCutoutPadding()
+                .imePadding()
         ) {
             // Desktop Workspace Area
             BoxWithConstraints(
@@ -282,10 +284,15 @@ fun DesktopScreen(vm: OSViewModel) {
             ) {
                 val boundsW = maxWidth.value
                 val boundsH = maxHeight.value
+                // Keep icon grid height stable when soft keyboard opens so icons never jump around!
+                var stableBoundsH by remember { mutableFloatStateOf(boundsH) }
+                if (boundsH > stableBoundsH) stableBoundsH = boundsH
                 val cellW = 78f
                 val cellH = 82f
-                val maxRows = ((boundsH - 16f) / cellH).toInt().coerceAtLeast(1)
+                val maxRows = ((stableBoundsH - 16f) / cellH).toInt().coerceAtLeast(1)
                 val maxCols = ((boundsW - 12f) / cellW).toInt().coerceAtLeast(1)
+                // Symmetrical left & right margins!
+                val sideMargin = ((boundsW - maxCols * cellW) / 2f).coerceAtLeast(6f)
 
                 // Compute zero-overlap snap-to-grid positions
                 val occupied = mutableSetOf<Pair<Int, Int>>()
@@ -311,7 +318,7 @@ fun DesktopScreen(vm: OSViewModel) {
                 allShortcuts.forEachIndexed { idx, sc ->
                     val saved = vm.iconPositions[sc.id]
                     val (col, row) = if (saved != null) {
-                        val c = ((saved.x - 6f) / cellW).roundToInt().coerceIn(0, maxCols - 1)
+                        val c = ((saved.x - sideMargin) / cellW).roundToInt().coerceIn(0, maxCols - 1)
                         val r = ((saved.y - 8f) / cellH).roundToInt().coerceIn(0, maxRows - 1)
                         if ((c to r) !in occupied) c to r else nearestFreeSlot(c, r)
                     } else {
@@ -320,7 +327,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         if ((defC to defR) !in occupied && defC < maxCols) defC to defR else nearestFreeSlot(defC, defR)
                     }
                     occupied.add(col to row)
-                    resolvedPositions[sc.id] = (6f + col * cellW) to (8f + row * cellH)
+                    resolvedPositions[sc.id] = (sideMargin + col * cellW) to (8f + row * cellH)
                 }
 
                 val recyclePos = resolvedPositions["icon-recycle"]
@@ -382,9 +389,9 @@ fun DesktopScreen(vm: OSViewModel) {
                                                 return@detectDragGestures
                                             }
                                         }
-                                        val snapC = ((dragX - 6f) / cellW).roundToInt().coerceIn(0, maxCols - 1)
+                                        val snapC = ((dragX - sideMargin) / cellW).roundToInt().coerceIn(0, maxCols - 1)
                                         val snapR = ((dragY - 8f) / cellH).roundToInt().coerceIn(0, maxRows - 1)
-                                        val nx = 6f + snapC * cellW
+                                        val nx = sideMargin + snapC * cellW
                                         val ny = 8f + snapR * cellH
                                         dragX = nx
                                         dragY = ny

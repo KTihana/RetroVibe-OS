@@ -51,6 +51,9 @@ data class ReminderItem(
     val title: String,
     val message: String,
     val timeLabel: String,
+    val dueDate: String = "", // YYYY-MM-DD
+    val notifyEnabled: Boolean = false,
+    val dismissedDate: String = "",
     val completed: Boolean = false,
     val showPopup: Boolean = false
 )
@@ -139,7 +142,7 @@ data class PersistedOSState(
     val mailPopupsEnabled: Boolean = false,
     val screensaverId: ScreensaverId = ScreensaverId.TOASTERS,
     val screensaverWaitSec: Int = 0,
-    val crtScanlines: Boolean = false,
+    val crtScanlines: Boolean = true,
     val loginPromptEnabled: Boolean = false,
     val username: String = "RetroUser",
     val githubRepo: String = "KTihana/RetroVibe-OS"

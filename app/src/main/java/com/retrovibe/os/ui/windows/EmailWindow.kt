@@ -49,16 +49,9 @@ fun EmailWindow(vm: OSViewModel, palette: RetroPalette) {
             listOf(
                 RetroEmail(
                     "m-1",
-                    "welcome@retrovibe.os",
+                    "",
                     "Welcome to RetroVibe Express!",
                     "You can read demo mail here or paste a Gmail OAuth2 Access Token in Settings to sync your real inbox.",
-                    "Today"
-                ),
-                RetroEmail(
-                    "m-2",
-                    "afterdark@retrovibe.os",
-                    "Tip: Try Flying Toasters!",
-                    "Open Start -> Settings -> Display to preview Flying Toasters, 3D Pipes, and 3D Maze on the CRT monitor.",
                     "Today"
                 )
             )
@@ -244,7 +237,9 @@ fun EmailWindow(vm: OSViewModel, palette: RetroPalette) {
                     RetroButton(label = "<- Inbox", palette = palette, onClick = { selectedEmail = null })
                     Spacer(Modifier.height(6.dp))
                     Text(mail.subject, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
-                    Text("From: ${mail.from}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color(0xFF555555))
+                    if (mail.from.isNotBlank()) {
+                        Text("From: ${mail.from}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color(0xFF555555))
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(mail.snippet, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Black)
                 }
@@ -282,7 +277,9 @@ fun EmailWindow(vm: OSViewModel, palette: RetroPalette) {
                                 )
                                 Text(mail.date, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = Color(0xFF666666))
                             }
-                            Text(mail.from, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = palette.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (mail.from.isNotBlank()) {
+                                Text(mail.from, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = palette.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                 }

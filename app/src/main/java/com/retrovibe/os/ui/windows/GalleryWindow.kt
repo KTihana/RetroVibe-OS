@@ -126,8 +126,14 @@ fun GalleryWindow(vm: OSViewModel, palette: RetroPalette) {
                         fontSize = 10.sp,
                         color = Color.White,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
+                    Spacer(Modifier.width(6.dp))
+                    RetroButton(label = "Remove", palette = palette, onClick = {
+                        vm.removePermittedPhoto(photo.id)
+                        selectedPhoto = null
+                    })
                 }
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -191,15 +197,27 @@ fun GalleryWindow(vm: OSViewModel, palette: RetroPalette) {
                                     .padding(3.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                AsyncImage(
-                                    model = photo.uri,
-                                    contentDescription = photo.filename,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(1f)
-                                        .background(Color(0xFF222222))
-                                )
+                                Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
+                                    AsyncImage(
+                                        model = photo.uri,
+                                        contentDescription = photo.filename,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color(0xFF222222))
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(2.dp)
+                                            .size(18.dp)
+                                            .win98Bevel(sunken = false, bg = palette.windowBg, strokeDp = 1.dp)
+                                            .clickable { vm.removePermittedPhoto(photo.id) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("×", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFB01237))
+                                    }
+                                }
                                 Text(
                                     text = photo.filename,
                                     fontFamily = FontFamily.Monospace,
