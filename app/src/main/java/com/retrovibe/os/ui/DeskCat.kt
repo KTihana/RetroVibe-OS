@@ -29,113 +29,387 @@ import com.retrovibe.os.theme.RetroThemes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val CAT_PALETTE = mapOf(
-    'k' to Color(0xFF1C1824),
-    'o' to Color(0xFFF4B878),
-    'l' to Color(0xFFFFE2BD),
-    'd' to Color(0xFFD18D4B),
-    'p' to Color(0xFFF28FA8),
+private val MINDI_PALETTE = mapOf(
+    'k' to Color(0xFF1C1420),
+    'l' to Color(0xFFFFDF9E),
+    'o' to Color(0xFFF5A958),
+    'm' to Color(0xFFE68D3E),
+    'd' to Color(0xFFC46B24),
+    'p' to Color(0xFFF488A4),
+    'q' to Color(0xFFFFBCD0),
     'w' to Color(0xFFFFFFFF),
-    'e' to Color(0xFF1C1824),
-    'f' to Color(0xFF6FB7E8),
-    'z' to Color(0xFF4A6FD0)
+    'e' to Color(0xFF181420),
+    'u' to Color(0xFF181420),
+    'f' to Color(0xFF5CB8EA),
+    'g' to Color(0xFFA8E4FF),
+    'z' to Color(0xFF5A84E0)
 )
 
-private val CAT_IDLE_1 = listOf(
-    "................",
-    "..kk........kk..",
-    ".kopkkkkkkkkpok.",
-    ".kooooooooooook.",
-    ".kooodoooodoook.",
-    ".kooeeooooeeook.",
-    ".kooewooooewook.",
-    ".kooollpplloook.",
-    ".kooolkllkloook.",
-    "..kllllllllllk..",
-    "..kooolllloook.k",
-    "..kdoooooooodkok",
-    "..kdoooooooodkok",
-    ".kllkooooookllkk",
-    ".kkkkkkkkkkkkkk.",
-    "................"
+private val SPOOKS_PALETTE = mapOf(
+    'k' to Color(0xFF0A0912),
+    'l' to Color(0xFF524F6E),
+    'o' to Color(0xFF2E2C40),
+    'm' to Color(0xFF232132),
+    'd' to Color(0xFF171524),
+    'p' to Color(0xFFF08CA8),
+    'q' to Color(0xFFFFC2D4),
+    'w' to Color(0xFFFFFFFF),
+    'e' to Color(0xFF56E878),
+    'u' to Color(0xFF9894B4),
+    'f' to Color(0xFF5CB8EA),
+    'g' to Color(0xFFA8E4FF),
+    'z' to Color(0xFF8CA8FF)
 )
 
-private val CAT_IDLE_2 = listOf(
-    "................",
-    "..kk........kk..",
-    ".kopkkkkkkkkpok.",
-    ".kooooooooooook.",
-    ".kooodoooodoook.",
-    ".kooooooooooook.",
-    ".kookkooookkook.",
-    ".kooollpplloook.",
-    ".kooolkllkloook.",
-    "..kllllllllllk.k",
-    "..kooolllloookok",
-    "..kdoooooooodkok",
-    "..kdoooooooodkok",
-    ".kllkooooookllkk",
-    ".kkkkkkkkkkkkkk.",
-    "................"
+private val MINDI_CAT_IDLE_1 = listOf(
+    "................................",
+    "................................",
+    "................................",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllweeoooomoweemdmk......",
+    "......klddeeeooooomeeedddk......",
+    "......kllleeeooppmoeeemdmk......",
+    "......kldpplououuoummppddk......",
+    ".......klppolouooummmppdk.......",
+    "........kllloooomommmmdk.kkk....",
+    ".........kklloooommmmkk.klook...",
+    ".........klkkddddddkkdk.koddk...",
+    "........kllololololomddk.kklok..",
+    ".......kllolololololdmddk.kodk..",
+    ".......klllololololomdddkklok...",
+    "......klllooololololmmdddkodk...",
+    "......kllllooooooooomdmddlok....",
+    "......kllloooooooooommddlodk....",
+    "......kllllkoookkmmmkdmlodk.....",
+    ".......klloklllkklllkmdodk......",
+    ".......klllklllkklllkdddk.......",
+    "........kllkomokkmmmkddk........",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
 )
 
-private val CAT_PURR = listOf(
-    "......p..p......",
-    "..kk...pp...kk..",
-    ".kopkkkkkkkkpok.",
-    ".kooooooooooook.",
-    ".kooodoooodoook.",
-    ".kookkooookkook.",
-    ".kopoooooooopok.",
-    ".kopollppllopok.",
-    ".kooolkllkloook.",
-    "..kllllllllllk.k",
-    "..kooolllloookok",
-    "..kdoooooooodkok",
-    "..kdoooooooodkok",
-    ".kllkooooookllkk",
-    ".kkkkkkkkkkkkkk.",
-    "................"
+private val MINDI_CAT_IDLE_2 = listOf(
+    "................................",
+    "................................",
+    "................................",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllloooooomommmmdmk......",
+    "......kldduuuooooomuuudddk......",
+    "......kllllooooppmommmmdmk......",
+    "......kldpplououuoummppddk......",
+    ".......klppolouooummmppdlok.....",
+    "........kllloooomommmmdkodok....",
+    ".........kklloooommmmkk.kodk....",
+    ".........klkkddddddkkdk..klok...",
+    "........kllololololomddk.kodk...",
+    ".......kllolololololdmddkklok...",
+    ".......klllololololomdddkkodk...",
+    "......klllooololololmmdddlok....",
+    "......kllllooooooooomdmdlodk....",
+    "......kllloooooooooommdlodk.....",
+    "......kllllkoookkmmmkdmodk......",
+    ".......klloklllkklllkmddk.......",
+    ".......klllklllkklllkdddk.......",
+    "........kllkomokkmmmkddk........",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
 )
 
-private val CAT_EAT = listOf(
-    "................",
-    "..kk........kk..",
-    ".kopkkkkkkkkpok.",
-    ".kooooooooooook.",
-    ".kooodoooodoook.",
-    ".kooeeooooeeook.",
-    ".kooewooooewook.",
-    ".kooollpplloook.",
-    ".kooolkkkkloook.",
-    "..kllllppllllk.k",
-    "..kooolllloookok",
-    "..kdkkkkkkkodkok",
-    "..kkfffffwfkk...",
-    ".kllkkkkkkkkllkk",
-    ".kkkkkkkkkkkkkk.",
-    "................"
+private val MINDI_CAT_PURR = listOf(
+    ".............pq..pp.............",
+    "............qwpppppp............",
+    ".............pppppp.............",
+    ".........k....pppp....k.........",
+    "........kok....pp....kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllluooooomomummdmk......",
+    "......kldduluooooomumudddk......",
+    "......klpppooooppmommpppmk......",
+    "......klppplououuoummpppdk......",
+    ".......klppolouooummmppdlok.....",
+    "........kllloooomommmmdkodok....",
+    ".........kklloooommmmkk.kodk....",
+    ".........klkkddddddkkdk..klok...",
+    "........kllololololomddk.kodk...",
+    ".......kllolololololdmddkklok...",
+    ".......klllololololomdddkkodk...",
+    "......klllooololololmmdddlok....",
+    "......kllllooooooooomdmdlodk....",
+    "......kllloooooooooommdlodk.....",
+    "......kllllkoookkmmmkdmodk......",
+    ".......klloklllkklllkmddk.......",
+    ".......klllklllkklllkdddk.......",
+    "........kllkomokkmmmkddk........",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
 )
 
-private val CAT_SLEEP = listOf(
-    "...........zzz..",
-    ".............z..",
-    "...........zzz..",
-    "..kk........kk..",
-    ".kopkkkkkkkkpok.",
-    ".kooooooooooook.",
-    ".kooodoooodoook.",
-    ".kookkooookkook.",
-    ".kooooooooooook.",
-    ".kooollpplloook.",
-    ".kooolkllkloook.",
-    "..kllllllllllk..",
-    "..kooolllloook..",
-    ".kllkooooookllk.",
-    ".kkkkkkkkkkkkkk.",
-    "................"
+private val MINDI_CAT_EAT = listOf(
+    "................................",
+    "................................",
+    "................................",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllluooooomomummdmk......",
+    "......kldduluooooomumudddk......",
+    "......kllllooooppmommmmdmk......",
+    "......kldpplooppppmmmppddk......",
+    ".......klppolopqqpmmmppdk.......",
+    "........kllloooomommmmdk.kkk....",
+    ".........kklloooommmmkk.klook...",
+    ".........klkkddddddkkdk.koddk...",
+    "........kllololololomddk.kklok..",
+    ".......kllolololololdmddk.kodk..",
+    ".......klllololololomdddkklok...",
+    "......klllooololololmmdddkodk...",
+    "......kllllooooooooomdmddlok....",
+    "......kllloookkkkkkokkkdlodk....",
+    "......kllllkkggggffkkgklodk.....",
+    ".......kllokfwffffffkfkodk......",
+    ".......klllkkffffffkkfkdk.......",
+    "........kllkokkkkkkmkkkk........",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
 )
 
+private val MINDI_CAT_SLEEP = listOf(
+    "......................zzzz......",
+    "........................z..zzz..",
+    ".......................z....z...",
+    "......................zzzz.zzz..",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooldodmdoppook.......",
+    "........kllolododmdmmmmk........",
+    ".......klllloododommmmdmk.......",
+    "......klllloooooomommmmdmk......",
+    "......kllloloooooommmmmmdk......",
+    "......kldduouoooomoumuddmk......",
+    "......klllouoooppommummmdk......",
+    "......kldppoooooomommppdmk......",
+    ".......klpplooouuommmppmk.......",
+    "........klloloooommmmmmk........",
+    ".........kkllloommmmdkk.........",
+    ".........klkkddddddkkdk.........",
+    "........klllololololdddk........",
+    ".......klllololololomdddk.......",
+    ".......kllolololololdmddk.......",
+    "......kllllololololomdmddk......",
+    "......kllloooooooooommdddk......",
+    "......kllllooooooooomdmddk......",
+    "......klllokoookkmmmkmdddkkk....",
+    ".......klllklllkklllkdollllok...",
+    ".......klloklllkklllkmooooook...",
+    "........kllkomokkmmmkdoddddok...",
+    ".........kkkkkkkkkkkkkkkkkkk...."
+)
+
+private val SPOOKS_CAT_IDLE_1 = listOf(
+    "................................",
+    "................................",
+    "................................",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllweeoooomoweemdmk......",
+    "......klddekeooooomekedddk......",
+    ".....klllleeeooppmoeeemdmdk.....",
+    "......kldpplououuoummppddk......",
+    ".......klppolouooummmppdk.......",
+    "........kllloooomommmmdk.kkkk...",
+    ".........kklloooommmmkk.kloook..",
+    ".........klkkddddddkkdk.kooook..",
+    "........kllololololomddkkooddok.",
+    ".......kllolololololdmddkkkoook.",
+    "......kllllololololomdddkkloodk.",
+    "......klllooololololmmdddkoook..",
+    ".....kollllooooooooomdmddloodk..",
+    "......kllloooooooooommddloook...",
+    "......kllllkoookkmmmkdmlooodk...",
+    ".......klloklllkklllkmdooodk....",
+    ".......klllklllkklllkddoodk.....",
+    "........kllkomokkmmmkddkkk......",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
+)
+
+private val SPOOKS_CAT_IDLE_2 = listOf(
+    "................................",
+    "................................",
+    "................................",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllloooooomommmmdmk......",
+    "......kldduuuooooomuuudddk......",
+    ".....klllllooooppmommmmdmdk.....",
+    "......kldpplououuoummppddkk.....",
+    ".......klppolouooummmppdlook....",
+    "........kllloooomommmmdkooook...",
+    ".........kklloooommmmkkkoodok...",
+    ".........klkkddddddkkdk.koodok..",
+    "........kllololololomddk.koook..",
+    ".......kllolololololdmddkkoodk..",
+    "......kllllololololomdddkkoook..",
+    "......klllooololololmmdddloodk..",
+    ".....kollllooooooooomdmdloook...",
+    "......kllloooooooooommdlooodk...",
+    "......kllllkoookkmmmkdmooodk....",
+    ".......klloklllkklllkmdoodk.....",
+    ".......klllklllkklllkdddkk......",
+    "........kllkomokkmmmkddk........",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
+)
+
+private val SPOOKS_CAT_PURR = listOf(
+    ".............pq..pp.............",
+    "............qwpppppp............",
+    ".............pppppp.............",
+    ".........k....pppp....k.........",
+    "........kok....pp....kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllluooooomomummdmk......",
+    "......kldduluooooomumudddk......",
+    ".....kllpppooooppmommpppmdk.....",
+    "......klppplououuoummpppdkk.....",
+    ".......klppolouooummmppdlook....",
+    "........kllloooomommmmdkooook...",
+    ".........kklloooommmmkkkoodok...",
+    ".........klkkddddddkkdk.koodok..",
+    "........kllololololomddk.koook..",
+    ".......kllolololololdmddkkoodk..",
+    "......kllllololololomdddkkoook..",
+    "......klllooololololmmdddloodk..",
+    ".....kollllooooooooomdmdloook...",
+    "......kllloooooooooommdlooodk...",
+    "......kllllkoookkmmmkdmooodk....",
+    ".......klloklllkklllkmdoodk.....",
+    ".......klllklllkklllkdddkk......",
+    "........kllkomokkmmmkddk........",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
+)
+
+private val SPOOKS_CAT_EAT = listOf(
+    "................................",
+    "................................",
+    "................................",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooododmdoppook.......",
+    "........kllloodododmmmdk........",
+    ".......klllolododmmmmmmdk.......",
+    "......kllloloooooommmmmmdk......",
+    "......klllluooooomomummdmk......",
+    "......kldduluooooomumudddk......",
+    ".....klllllooooppmommmmdmdk.....",
+    "......kldpplooppppmmmppddk......",
+    ".......klppolopqqpmmmppdk.......",
+    "........kllloooomommmmdk.kkkk...",
+    ".........kklloooommmmkk.kloook..",
+    ".........klkkddddddkkdk.kooook..",
+    "........kllololololomddkkooddok.",
+    ".......kllolololololdmddkkkoook.",
+    "......kllllololololomdddkkloodk.",
+    "......klllooololololmmdddkoook..",
+    ".....kollllooooooooomdmddloodk..",
+    "......kllloookkkkkkokkkdloook...",
+    "......kllllkkggggffkkgklooodk...",
+    ".......kllokfwffffffkfkooodk....",
+    ".......klllkkffffffkkfkoodk.....",
+    "........kllkokkkkkkmkkkkkk......",
+    ".........kkkkkkkkkkkkkk.........",
+    "................................"
+)
+
+private val SPOOKS_CAT_SLEEP = listOf(
+    "......................zzzz......",
+    "........................z..zzz..",
+    ".......................z....z...",
+    "......................zzzz.zzz..",
+    ".........k............k.........",
+    "........kok..........kok........",
+    "........kook........kook........",
+    "........kqook......kooqk........",
+    ".......koppokkkkkkkkppook.......",
+    ".......koppooldodmdoppook.......",
+    "........kllolododmdmmmmk........",
+    ".......klllloododommmmdmk.......",
+    "......klllloooooomommmmdmk......",
+    "......kllloloooooommmmmmdk......",
+    "......kldduouoooomoumuddmk......",
+    ".....kllllouoooppommummmddk.....",
+    "......kldppoooooomommppdmk......",
+    ".......klpplooouuommmppmk.......",
+    "........klloloooommmmmmk........",
+    ".........kkllloommmmdkk.........",
+    ".........klkkddddddkkdk.........",
+    "........klllololololdddk........",
+    ".......klllololololomdddk.......",
+    "......klllolololololdmddk.......",
+    "......kllllololololomdmddk......",
+    ".....kollloooooooooommddddk.....",
+    "......kllllooooooooomdmddk......",
+    "......klllokoookkmmmkmdddkkk....",
+    ".......klllklllkklllkdollllok...",
+    ".......klloklllkklllkmooooook...",
+    "........kllkomokkmmmkdoddddok...",
+    ".........kkkkkkkkkkkkkkkkkkk...."
+)
 
 @Composable
 fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
@@ -208,11 +482,22 @@ fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
         }
     }
 
-    val sprite = when (mood) {
-        "sleep" -> CAT_SLEEP
-        "purr" -> CAT_PURR
-        "eat" -> CAT_EAT
-        else -> if (frame == 0) CAT_IDLE_1 else CAT_IDLE_2
+    val isSpooks = vm.deskCatVariant == "spooks"
+    val activePalette = if (isSpooks) SPOOKS_PALETTE else MINDI_PALETTE
+    val sprite = if (isSpooks) {
+        when (mood) {
+            "sleep" -> SPOOKS_CAT_SLEEP
+            "purr" -> SPOOKS_CAT_PURR
+            "eat" -> SPOOKS_CAT_EAT
+            else -> if (frame == 0) SPOOKS_CAT_IDLE_1 else SPOOKS_CAT_IDLE_2
+        }
+    } else {
+        when (mood) {
+            "sleep" -> MINDI_CAT_SLEEP
+            "purr" -> MINDI_CAT_PURR
+            "eat" -> MINDI_CAT_EAT
+            else -> if (frame == 0) MINDI_CAT_IDLE_1 else MINDI_CAT_IDLE_2
+        }
     }
 
     Box(
@@ -268,11 +553,11 @@ fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
                     }
                 }
         ) {
-            val cw = size.width / 16f
-            val ch = size.height / 16f
+            val cw = size.width / 32f
+            val ch = size.height / 32f
             for (y in sprite.indices) {
                 for (x in sprite[y].indices) {
-                    val col = CAT_PALETTE[sprite[y][x]] ?: continue
+                    val col = activePalette[sprite[y][x]] ?: continue
                     drawRect(col, Offset(x * cw, y * ch), Size(cw + 0.5f, ch + 0.5f))
                 }
             }
@@ -283,11 +568,19 @@ fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
                 theme = theme,
                 raised = true,
                 modifier = Modifier
-                    .offset(x = if (posX > boundsW - 140f) (-70).dp else 0.dp, y = (-118).dp)
-                    .width(122.dp)
+                    .offset(x = if (posX > boundsW - 140f) (-70).dp else 0.dp, y = (-156).dp)
+                    .width(142.dp)
             ) {
                 Column(modifier = Modifier.padding(2.dp)) {
-                    CatMenuRow("Pet Cat", theme.textPrimary) { menuOpen = false; pet() }
+                    Text(
+                        text = if (isSpooks) "~ Spooks ~" else "~ Mindi ~",
+                        color = theme.textSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                    CatMenuRow(if (isSpooks) "Pet Spooks" else "Pet Mindi", theme.textPrimary) { menuOpen = false; pet() }
                     CatMenuRow("Feed Treat", theme.textPrimary) {
                         menuOpen = false
                         RetroSoundEngine.play(RetroSound.PURR, vm.soundEnabled)
@@ -299,6 +592,13 @@ fun DeskCat(vm: OSViewModel, boundsW: Float, boundsH: Float) {
                         menuOpen = false
                         mood = if (mood == "sleep") "idle" else "sleep"
                         showMsg(if (mood == "sleep") "Zzz..." else "Meow!")
+                    }
+                    CatMenuRow(if (isSpooks) "Switch to Mindi" else "Switch to Spooks", theme.titleBarActive) {
+                        menuOpen = false
+                        vm.deskCatVariant = if (isSpooks) "mindi" else "spooks"
+                        vm.persist()
+                        RetroSoundEngine.play(RetroSound.PURR, vm.soundEnabled)
+                        showMsg(if (vm.deskCatVariant == "spooks") "Hi, I'm Spooks!" else "Hi, I'm Mindi!")
                     }
                     CatMenuRow("Remove Cat", Color(0xFFB01237)) {
                         menuOpen = false

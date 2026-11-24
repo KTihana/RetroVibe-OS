@@ -133,6 +133,7 @@ data class PersistedOSState(
         "icon-calc", "icon-recorder", "icon-settings", "icon-status", "icon-taskmgr", "icon-sweeper"
     ),
     val deskCatEnabled: Boolean = false,
+    val deskCatVariant: String = "mindi",
     val deskCatX: Float = 220f,
     val browserFavorites: List<BrowserFavorite> = emptyList(),
     val mailPopupsEnabled: Boolean = false,

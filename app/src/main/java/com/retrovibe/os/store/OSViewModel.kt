@@ -47,6 +47,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     var clipboard by mutableStateOf<ClipboardEntry?>(null)
 
     var deskCatEnabled by mutableStateOf(false)
+    var deskCatVariant by mutableStateOf("mindi") // "mindi" (ginger) | "spooks" (fluffy black)
     var deskCatX by mutableStateOf(220f)
     var browserFavorites by mutableStateOf<List<BrowserFavorite>>(emptyList())
     var mailPopupsEnabled by mutableStateOf(false)
@@ -147,6 +148,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             iconPositions = s.iconPositions
             hiddenDesktopIcons = s.hiddenDesktopIcons
             deskCatEnabled = s.deskCatEnabled
+            deskCatVariant = s.deskCatVariant.ifBlank { "mindi" }
             deskCatX = s.deskCatX
             browserFavorites = s.browserFavorites
             mailPopupsEnabled = s.mailPopupsEnabled
@@ -179,6 +181,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             iconPositions = iconPositions,
             hiddenDesktopIcons = hiddenDesktopIcons,
             deskCatEnabled = deskCatEnabled,
+            deskCatVariant = deskCatVariant,
             deskCatX = deskCatX,
             browserFavorites = browserFavorites,
             mailPopupsEnabled = mailPopupsEnabled,

@@ -689,6 +689,7 @@ fun DesktopScreen(vm: OSViewModel) {
                     ) {
                         Row(
                             modifier = Modifier
+                                .align(Alignment.BottomStart)
                                 .width(194.dp)
                                 .win98Bevel(sunken = false, bg = theme.windowBg)
                                 .padding(2.dp)

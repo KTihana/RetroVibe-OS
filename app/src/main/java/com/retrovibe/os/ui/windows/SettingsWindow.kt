@@ -251,6 +251,30 @@ fun SettingsWindow(vm: OSViewModel, palette: RetroPalette) {
                             vm.persist()
                         }
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        RetroButton(
+                            label = if (vm.deskCatVariant == "mindi") "[*] Mindi (Ginger)" else "[ ] Mindi (Ginger)",
+                            palette = palette,
+                            active = vm.deskCatVariant == "mindi",
+                            onClick = {
+                                vm.deskCatVariant = "mindi"
+                                vm.deskCatEnabled = true
+                                RetroSoundEngine.play(RetroSound.PURR, vm.soundEnabled)
+                                vm.persist()
+                            }
+                        )
+                        RetroButton(
+                            label = if (vm.deskCatVariant == "spooks") "[*] Spooks (Black)" else "[ ] Spooks (Black)",
+                            palette = palette,
+                            active = vm.deskCatVariant == "spooks",
+                            onClick = {
+                                vm.deskCatVariant = "spooks"
+                                vm.deskCatEnabled = true
+                                RetroSoundEngine.play(RetroSound.PURR, vm.soundEnabled)
+                                vm.persist()
+                            }
+                        )
+                    }
                     RetroButton(
                         label = if (vm.loginPromptEnabled) "[x] Win98 Login Screen on Boot" else "[ ] Win98 Login Screen on Boot",
                         palette = palette,
