@@ -34,6 +34,8 @@ import com.retrovibe.os.ui.win98Bevel
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlin.math.sin
+import com.retrovibe.os.theme.textDark
+import com.retrovibe.os.theme.accent
 
 @Composable
 fun SoundRecorderWindow(vm: OSViewModel, palette: RetroPalette) {

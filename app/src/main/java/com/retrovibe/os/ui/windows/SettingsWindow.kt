@@ -30,6 +30,10 @@ import com.retrovibe.os.theme.paletteFor
 import com.retrovibe.os.ui.RetroButton
 import com.retrovibe.os.ui.ScreensaverCanvas
 import com.retrovibe.os.ui.win98Bevel
+import com.retrovibe.os.theme.textDark
+import com.retrovibe.os.theme.accent
+import com.retrovibe.os.theme.desktopBg
+import com.retrovibe.os.theme.titleBarStart
 
 private val DESKTOP_ICON_CATALOG = listOf(
     "icon-explorer" to "My Computer",

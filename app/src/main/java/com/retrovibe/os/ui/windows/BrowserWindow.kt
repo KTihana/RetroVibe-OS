@@ -29,6 +29,8 @@ import com.retrovibe.os.ui.PixelIcon
 import com.retrovibe.os.ui.RetroButton
 import com.retrovibe.os.ui.win98Bevel
 import kotlinx.coroutines.delay
+import com.retrovibe.os.theme.textDark
+import com.retrovibe.os.theme.accent
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable

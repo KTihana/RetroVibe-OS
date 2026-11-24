@@ -30,6 +30,7 @@ import com.retrovibe.os.ui.RetroButton
 import com.retrovibe.os.ui.win98Bevel
 import kotlinx.coroutines.delay
 import kotlin.random.Random
+import com.retrovibe.os.theme.accent
 
 @Composable
 fun MusicPlayerWindow(vm: OSViewModel, palette: RetroPalette) {

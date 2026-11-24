@@ -32,6 +32,7 @@ import com.retrovibe.os.theme.RetroPalette
 import com.retrovibe.os.ui.PixelIcon
 import com.retrovibe.os.ui.RetroButton
 import com.retrovibe.os.ui.win98Bevel
+import com.retrovibe.os.theme.textDark
 
 @Composable
 fun GalleryWindow(vm: OSViewModel, palette: RetroPalette) {

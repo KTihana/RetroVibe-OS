@@ -26,6 +26,7 @@ import com.retrovibe.os.theme.RetroPalette
 import com.retrovibe.os.ui.RetroButton
 import com.retrovibe.os.ui.win98Bevel
 import kotlinx.coroutines.delay
+import com.retrovibe.os.theme.accent
 
 @Composable
 fun TaskManagerWindow(vm: OSViewModel, palette: RetroPalette) {
