@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/KTihana/RetroVibe-OS/releases/latest">
+  <a href="https://github.com/KTihana/RetroVibe-OS/releases/latest/download/RetroVibe-OS.apk">
     <img src="assets/win98-download-btn.svg" alt="Download RetroVibe OS (.APK)" />
   </a>
 </p>
