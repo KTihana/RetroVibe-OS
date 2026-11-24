@@ -194,7 +194,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
         isAntiAlias = false
     }
 
-    val shapeStroke: Float get() = (brushSize / 2f).coerceAtLeast(1f)
+    fun shapeStroke(): Float = (brushSize / 2f).coerceAtLeast(1f)
 
     // ---------- Selection ----------
     fun commitSelection() {
@@ -275,9 +275,9 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
             }
         }
         when (fillMode) {
-            1 -> { draw(fillPaint(bgColor)); draw(strokePaint(fgColor, shapeStroke)) }
+            1 -> { draw(fillPaint(bgColor)); draw(strokePaint(fgColor, shapeStroke())) }
             2 -> draw(fillPaint(fgColor))
-            else -> draw(strokePaint(fgColor, shapeStroke))
+            else -> draw(strokePaint(fgColor, shapeStroke()))
         }
         refresh()
     }
@@ -288,7 +288,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
             drawShapeOnBitmap("paint_polygon", 0f, 0f, 0f, 0f, polyPts.toList())
         } else if (polyPts.size == 2) {
             pushUndo()
-            android.graphics.Canvas(bitmap).drawLine(polyPts[0].x, polyPts[0].y, polyPts[1].x, polyPts[1].y, strokePaint(fgColor, shapeStroke))
+            android.graphics.Canvas(bitmap).drawLine(polyPts[0].x, polyPts[0].y, polyPts[1].x, polyPts[1].y, strokePaint(fgColor, shapeStroke()))
             refresh()
         }
         polyPts.clear()
@@ -746,7 +746,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                     val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 6f))
                     val s = dragStart
                     val e = dragCur
-                    val stroke = Stroke(width = (shapeStroke * sx).coerceAtLeast(1.5f))
+                    val stroke = Stroke(width = (shapeStroke() * sx).coerceAtLeast(1.5f))
 
                     fun previewShape(tool: String, a: Offset, b: Offset) {
                         val tl = scr(Offset(minOf(a.x, b.x), minOf(a.y, b.y)))
@@ -775,7 +775,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                             "paint_curve" -> if (curveB == null) drawLine(fgColor, scr(s), scr(e), strokeWidth = ((brushSize / 2f + 1f) * sx))
                             "paint_polygon" -> {
                                 val from = polyPts.lastOrNull() ?: s
-                                drawLine(fgColor, scr(from), scr(e), strokeWidth = (shapeStroke * sx).coerceAtLeast(1.5f))
+                                drawLine(fgColor, scr(from), scr(e), strokeWidth = (shapeStroke() * sx).coerceAtLeast(1.5f))
                             }
                             "paint_select" -> if (!movingSel) {
                                 val tl = scr(Offset(minOf(s.x, e.x), minOf(s.y, e.y)))
@@ -812,7 +812,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                         val p = androidx.compose.ui.graphics.Path()
                         val f = scr(polyPts[0]); p.moveTo(f.x, f.y)
                         polyPts.drop(1).forEach { val q = scr(it); p.lineTo(q.x, q.y) }
-                        drawPath(p, fgColor, style = Stroke((shapeStroke * sx).coerceAtLeast(1.5f)))
+                        drawPath(p, fgColor, style = Stroke((shapeStroke() * sx).coerceAtLeast(1.5f)))
                         drawCircle(Color(0xFF000080), radius = 5f, center = f, style = Stroke(2f))
                     }
 
