@@ -8,8 +8,7 @@
       <rect width="4" height="2" fill="#000000" fill-opacity="0.06"/>
     </pattern>
   </defs>
-  <rect width="820" height="392" fill="#789BC2"/>
-  <rect width="820" height="392" fill="url(#scan)"/>
+  <!-- Transparent backdrop so the Win98 window floats cleanly on GitHub -->
 
   <g transform="translate(26, 14)">
     <rect x="6" y="6" width="768" height="360" fill="#24232B" fill-opacity="0.32"/>

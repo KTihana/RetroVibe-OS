@@ -9,9 +9,7 @@
     </pattern>
   </defs>
 
-  <!-- Pastel Denim Desktop Wallpaper -->
-  <rect width="820" height="230" fill="#789BC2"/>
-  <rect width="820" height="230" fill="url(#scanlines)"/>
+  <!-- Transparent backdrop so the Win98 window floats cleanly on GitHub -->
 
   <!-- Classic Win98 Outer Window Bevel -->
   <g transform="translate(26, 18)">
