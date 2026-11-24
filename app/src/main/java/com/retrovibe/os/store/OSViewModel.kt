@@ -104,12 +104,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
                 pinnedToDesktop = false
             )
         )
-        todos = listOf(
-            TodoItem("h-1", "Drink 8 glasses of water", listOf(todayIso())),
-            TodoItem("h-2", "Write a quick desktop note", listOf(todayIso())),
-            TodoItem("h-3", "Read 15 mins / stretch", emptyList()),
-            TodoItem("h-4", "Listen to a favorite song", emptyList())
-        )
+        todos = emptyList()
         reminders = emptyList()
         tracks = listOf(
             MusicTrack("demo-1", "01. Intro : CODE (Chiptune)", "RetroVibe OS Synth", isDemo = true),

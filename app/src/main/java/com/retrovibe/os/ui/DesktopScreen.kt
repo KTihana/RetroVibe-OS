@@ -74,6 +74,7 @@ fun DesktopScreen(vm: OSViewModel) {
     var activeSubmenu by remember { mutableStateOf<String?>(null) } // programs | documents | games | settings
     var selectedIconId by remember { mutableStateOf<String?>(null) }
     var contextMenuIconId by remember { mutableStateOf<String?>(null) }
+    var tabMenuWindowId by remember { mutableStateOf<String?>(null) }
     var showDesktopMenu by remember { mutableStateOf(false) }
     var toastMsg by remember { mutableStateOf<String?>(null) }
     var clockStr by remember { mutableStateOf(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))) }
@@ -250,7 +251,11 @@ fun DesktopScreen(vm: OSViewModel) {
             )
         }
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+        ) {
             // Desktop Workspace Area
             BoxWithConstraints(
                 modifier = Modifier
@@ -263,11 +268,13 @@ fun DesktopScreen(vm: OSViewModel) {
                                 activeSubmenu = null
                                 selectedIconId = null
                                 contextMenuIconId = null
+                                tabMenuWindowId = null
                                 showDesktopMenu = false
                             },
                             onLongPress = {
                                 startMenuOpen = false
                                 contextMenuIconId = null
+                                tabMenuWindowId = null
                                 showDesktopMenu = true
                             }
                         )
@@ -689,20 +696,23 @@ fun DesktopScreen(vm: OSViewModel) {
                             // Classic vertical RetroVibe OS banner
                             Box(
                                 modifier = Modifier
-                                    .width(24.dp)
+                                    .width(26.dp)
                                     .height(232.dp)
                                     .background(Brush.verticalGradient(listOf(theme.titleBarActive, theme.titleBarAccent))),
-                                contentAlignment = Alignment.BottomCenter
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = "RetroVibe OS",
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 11.sp,
+                                    fontSize = 13.sp,
                                     color = Color.White,
                                     maxLines = 1,
                                     softWrap = false,
-                                    modifier = Modifier.rotate(-90f).padding(start = 42.dp)
+                                    textAlign = TextAlign.Start,
+                                    modifier = Modifier
+                                        .rotate(-90f)
+                                        .requiredWidth(206.dp)
                                 )
                             }
 
@@ -790,6 +800,50 @@ fun DesktopScreen(vm: OSViewModel) {
                     }
                 }
 
+                // Taskbar Tab Long-Press Context Menu
+                if (tabMenuWindowId != null) {
+                    val targetWin = vm.windows[tabMenuWindowId]
+                    if (targetWin != null && targetWin.isOpen) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 64.dp, bottom = 4.dp)
+                                .zIndex(985f)
+                                .width(176.dp)
+                                .win98Bevel(sunken = false, bg = theme.windowBg)
+                                .padding(4.dp)
+                        ) {
+                            Text(
+                                text = targetWin.title,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = theme.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(theme.borderDark))
+                            StartRow(if (targetWin.isMinimized) "Restore" else "Minimize", "computer", theme) {
+                                tabMenuWindowId = null
+                                if (targetWin.isMinimized) vm.focusWindow(targetWin.id) else vm.minimizeWindow(targetWin.id)
+                            }
+                            StartRow(if (targetWin.isMaximized) "Unmaximize" else "Maximize", "settings", theme) {
+                                tabMenuWindowId = null
+                                vm.focusWindow(targetWin.id)
+                                vm.toggleMaximizeWindow(targetWin.id)
+                            }
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(theme.borderDark))
+                            StartRow("Close", "shutdown", theme) {
+                                tabMenuWindowId = null
+                                vm.closeWindow(targetWin.id)
+                            }
+                        }
+                    } else {
+                        tabMenuWindowId = null
+                    }
+                }
+
                 // Toast banner
                 if (toastMsg != null) {
                     Box(
@@ -873,7 +927,7 @@ fun DesktopScreen(vm: OSViewModel) {
                     Text("Start", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 11.sp, color = theme.textPrimary)
                 }
 
-                // Active Window Tabs
+                // Active Window Tabs (tap to focus/minimize, hold to close)
                 Row(
                     modifier = Modifier
                         .weight(1f)
@@ -882,14 +936,38 @@ fun DesktopScreen(vm: OSViewModel) {
                 ) {
                     vm.windows.values.filter { it.isOpen }.forEach { win ->
                         val active = vm.activeWindowId == win.id && !win.isMinimized
-                        RetroButton(
-                            label = win.title.take(14),
-                            palette = theme,
-                            active = active,
-                            onClick = {
-                                if (active) vm.minimizeWindow(win.id) else vm.focusWindow(win.id)
-                            }
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .background(if (active) theme.accentSoft else theme.windowBg)
+                                .win98Bevel(!active, theme.borderLight, theme.borderDark, theme.borderDeep)
+                                .pointerInput(win.id, active) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            tabMenuWindowId = null
+                                            RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
+                                            if (active) vm.minimizeWindow(win.id) else vm.focusWindow(win.id)
+                                        },
+                                        onLongPress = {
+                                            RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
+                                            startMenuOpen = false
+                                            tabMenuWindowId = win.id
+                                        }
+                                    )
+                                }
+                                .padding(horizontal = 7.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = win.title.take(14),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.textPrimary
+                            )
+                        }
                     }
                 }
 

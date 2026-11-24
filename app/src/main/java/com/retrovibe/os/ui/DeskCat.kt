@@ -44,7 +44,7 @@ private val CAT_PALETTE = mapOf(
 private val CAT_IDLE_1 = listOf(
     "................",
     "..kk........kk..",
-    ".kopk......kpok.",
+    ".kopkkkkkkkkpok.",
     ".kooooooooooook.",
     ".kooodoooodoook.",
     ".kooeeooooeeook.",
@@ -63,7 +63,7 @@ private val CAT_IDLE_1 = listOf(
 private val CAT_IDLE_2 = listOf(
     "................",
     "..kk........kk..",
-    ".kopk......kpok.",
+    ".kopkkkkkkkkpok.",
     ".kooooooooooook.",
     ".kooodoooodoook.",
     ".kooooooooooook.",
@@ -82,7 +82,7 @@ private val CAT_IDLE_2 = listOf(
 private val CAT_PURR = listOf(
     "......p..p......",
     "..kk...pp...kk..",
-    ".kopk......kpok.",
+    ".kopkkkkkkkkpok.",
     ".kooooooooooook.",
     ".kooodoooodoook.",
     ".kookkooookkook.",
@@ -101,7 +101,7 @@ private val CAT_PURR = listOf(
 private val CAT_EAT = listOf(
     "................",
     "..kk........kk..",
-    ".kopk......kpok.",
+    ".kopkkkkkkkkpok.",
     ".kooooooooooook.",
     ".kooodoooodoook.",
     ".kooeeooooeeook.",
@@ -122,7 +122,7 @@ private val CAT_SLEEP = listOf(
     ".............z..",
     "...........zzz..",
     "..kk........kk..",
-    ".kopk......kpok.",
+    ".kopkkkkkkkkpok.",
     ".kooooooooooook.",
     ".kooodoooodoook.",
     ".kookkooookkook.",

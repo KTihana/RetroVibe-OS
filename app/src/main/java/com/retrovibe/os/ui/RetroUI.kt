@@ -198,7 +198,7 @@ fun RetroWindow(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(25.dp)
+                    .height(29.dp)
                     .background(titleBrush)
                     .pointerInput(win.id, win.isMaximized) {
                         if (!win.isMaximized) {
@@ -233,7 +233,7 @@ fun RetroWindow(
                     color = if (isActive) theme.titleTextActive else theme.titleTextInactive,
                     modifier = Modifier.weight(1f)
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     WinTitleBtn("_", theme, vm.soundEnabled) { vm.minimizeWindow(win.id) }
                     WinTitleBtn(if (win.isMaximized) "❐" else "□", theme, vm.soundEnabled) { vm.toggleMaximizeWindow(win.id) }
                     WinTitleBtn("×", theme, vm.soundEnabled) { vm.closeWindow(win.id) }
@@ -289,7 +289,7 @@ private fun WinTitleBtn(label: String, theme: RetroThemeColors, soundEnabled: Bo
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(18.dp, 17.dp)
+            .size(23.dp, 21.dp)
             .background(theme.windowBg)
             .win98Bevel(true, theme.borderLight, theme.borderDark, theme.borderDeep, 1.5.dp)
             .clickable {

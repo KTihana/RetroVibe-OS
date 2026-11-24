@@ -49,6 +49,7 @@ fun BootScreen(onFinish: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0C1020))
+            .safeDrawingPadding()
             .clickable { onFinish() }
             .padding(20.dp)
     ) {
@@ -60,7 +61,6 @@ fun BootScreen(onFinish: () -> Unit) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PixelIcon("winFlag", size = 56.dp)
             Text("RetroVibe OS", color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 26.sp, fontWeight = FontWeight.Black)
-            Text("98 SECOND EDITION", color = Color(0xFFF29EB6), fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
