@@ -167,6 +167,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
     var selY by remember { mutableStateOf(0f) }
     var selLifted by remember { mutableStateOf(false) }
     var movingSel by remember { mutableStateOf(false) }
+    var selTransparent by remember { mutableStateOf(false) } // false = Opaque, true = Transparent (drops bgColor)
 
     // Text tool
     var textAt by remember { mutableStateOf<Offset?>(null) }
@@ -197,8 +198,24 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
     fun shapeStroke(): Float = (brushSize / 2f).coerceAtLeast(1f)
 
     // ---------- Selection ----------
+    fun renderSelBitmap(): Bitmap? {
+        val raw = selBmp ?: return null
+        if (!selTransparent) return raw
+        val w = raw.width
+        val h = raw.height
+        val out = raw.copy(Bitmap.Config.ARGB_8888, true)
+        val pixels = IntArray(w * h)
+        out.getPixels(pixels, 0, w, 0, 0, w, h)
+        val key = bgColor.toArgb()
+        for (i in pixels.indices) {
+            if (pixels[i] == key) pixels[i] = 0x00000000
+        }
+        out.setPixels(pixels, 0, w, 0, 0, w, h)
+        return out
+    }
+
     fun commitSelection() {
-        val b = selBmp ?: return
+        val b = renderSelBitmap() ?: return
         if (selLifted) {
             android.graphics.Canvas(bitmap).drawBitmap(b, selX, selY, null)
         }
@@ -249,7 +266,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
     }
 
     fun copySelection() {
-        val b = selBmp ?: return
+        val b = renderSelBitmap() ?: return
         pushUndo()
         if (selLifted) android.graphics.Canvas(bitmap).drawBitmap(b, selX, selY, null)
         selLifted = true // source stays: moving now drags a duplicate
@@ -615,6 +632,57 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     when {
+                        activeTool == "paint_select" || activeTool == "paint_freeselect" -> {
+                            // Classic Win98 Opaque vs. Transparent Selection toggle!
+                            listOf(false, true).forEach { isTransparent ->
+                                val active = selTransparent == isTransparent
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(28.dp)
+                                        .background(if (active) Color(0xFF000080) else Color.Transparent)
+                                        .clickable {
+                                            RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
+                                            selTransparent = isTransparent
+                                            statusText = if (isTransparent) "Transparent selection" else "Opaque selection"
+                                            refresh()
+                                        }
+                                        .padding(3.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        val w = size.width
+                                        val h = size.height
+                                        // Yellow canvas background square on left
+                                        drawRect(Color(0xFFFFF48C), Offset(w * 0.06f, h * 0.12f), Size(w * 0.68f, h * 0.78f))
+                                        drawRect(Color.Black, Offset(w * 0.06f, h * 0.12f), Size(w * 0.68f, h * 0.78f), style = Stroke(1.2f))
+                                        // Blue cylinder + red sphere behind selection
+                                        drawRect(Color(0xFF2838C8), Offset(w * 0.16f, h * 0.22f), Size(w * 0.18f, h * 0.50f))
+                                        drawRect(Color(0xFF7898FF), Offset(w * 0.19f, h * 0.24f), Size(w * 0.05f, h * 0.44f))
+                                        drawCircle(Color(0xFFD82848), radius = h * 0.20f, center = Offset(w * 0.42f, h * 0.68f))
+                                        // Selection box on right: opaque white fill OR transparent!
+                                        val boxL = w * 0.46f
+                                        val boxT = h * 0.18f
+                                        val boxW = w * 0.48f
+                                        val boxH = h * 0.62f
+                                        if (!isTransparent) {
+                                            drawRect(Color.White, Offset(boxL, boxT), Size(boxW, boxH))
+                                        }
+                                        // Green cube inside selection
+                                        drawRect(Color(0xFF22B838), Offset(boxL + boxW * 0.22f, boxT + boxH * 0.18f), Size(boxW * 0.56f, boxH * 0.64f))
+                                        drawRect(Color(0xFF6CF078), Offset(boxL + boxW * 0.26f, boxT + boxH * 0.22f), Size(boxW * 0.24f, boxH * 0.52f))
+                                        drawRect(Color.Black, Offset(boxL + boxW * 0.22f, boxT + boxH * 0.18f), Size(boxW * 0.56f, boxH * 0.64f), style = Stroke(1f))
+                                        // Dashed selection border
+                                        drawRect(
+                                            Color.Black,
+                                            Offset(boxL, boxT),
+                                            Size(boxW, boxH),
+                                            style = Stroke(1.2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 2f)))
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         activeTool in SHAPE_TOOLS -> {
                             for (mode in 0..2) {
                                 val active = fillMode == mode
@@ -817,7 +885,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                     }
 
                     // Floating selection
-                    val sb = selBmp
+                    val sb = renderSelBitmap()
                     if (sb != null) {
                         val tl = scr(Offset(selX, selY))
                         val dst = IntSize((sb.width * sx).roundToInt().coerceAtLeast(1), (sb.height * sy).roundToInt().coerceAtLeast(1))
