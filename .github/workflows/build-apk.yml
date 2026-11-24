@@ -25,11 +25,28 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Build Debug APK
-        run: gradle assembleDebug
+      - name: Decode Signing Keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.RETROVIBE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/retrovibe-release.jks"
+            echo "RETROVIBE_KEYSTORE_PATH=$RUNNER_TEMP/retrovibe-release.jks" >> "$GITHUB_ENV"
+          fi
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk RetroVibe-OS.apk
+      - name: Build Signed Release APK
+        env:
+          RETROVIBE_STORE_PASS: ${{ secrets.RETROVIBE_STORE_PASS }}
+          RETROVIBE_KEY_ALIAS: ${{ secrets.RETROVIBE_KEY_ALIAS }}
+          RETROVIBE_KEY_PASS: ${{ secrets.RETROVIBE_KEY_PASS }}
+        run: |
+          if [ -n "$RETROVIBE_KEYSTORE_PATH" ]; then
+            gradle assembleRelease -PbuildNum=${{ github.run_number }}
+            cp app/build/outputs/apk/release/app-release.apk RetroVibe-OS.apk
+          else
+            gradle assembleDebug -PbuildNum=${{ github.run_number }}
+            cp app/build/outputs/apk/debug/app-debug.apk RetroVibe-OS.apk
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -40,8 +57,13 @@ jobs:
       - name: Publish Latest GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.0
-          name: RetroVibe OS v2.0.0
-          body: "RetroVibe OS 98 for Android. Tap RetroVibe-OS.apk below to install."
+          tag_name: v2.0.${{ github.run_number }}
+          name: RetroVibe OS v2.0.${{ github.run_number }}
+          body: |
+            RetroVibe OS 98 for Android (v2.0.${{ github.run_number }}).
+
+            Latest changes: ${{ github.event.head_commit.message }}
+
+            Tap **RetroVibe-OS.apk** below to install or update in place!
           files: RetroVibe-OS.apk
           make_latest: true

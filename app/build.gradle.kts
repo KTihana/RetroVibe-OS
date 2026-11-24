@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val buildNum = (project.findProperty("buildNum") as String?)?.toIntOrNull() ?: 1
+
 android {
     namespace = "com.retrovibe.os"
     compileSdk = 35
@@ -12,13 +14,29 @@ android {
         applicationId = "com.retrovibe.os"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = buildNum
+        versionName = "2.0.$buildNum"
+    }
+
+    signingConfigs {
+        create("release") {
+            val ksPath = System.getenv("RETROVIBE_KEYSTORE_PATH")
+            if (!ksPath.isNullOrBlank() && file(ksPath).exists()) {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("RETROVIBE_STORE_PASS")
+                keyAlias = System.getenv("RETROVIBE_KEY_ALIAS")
+                keyPassword = System.getenv("RETROVIBE_KEY_PASS")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            val ksPath = System.getenv("RETROVIBE_KEYSTORE_PATH")
+            if (!ksPath.isNullOrBlank() && file(ksPath).exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -35,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
