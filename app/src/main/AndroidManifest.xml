@@ -27,6 +27,8 @@
             android:launchMode="singleTask"
             android:stateNotNeeded="true"
             android:clearTaskOnLaunch="true"
+            android:excludeFromRecents="true"
+            android:resumeWhilePausing="true"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.RetroVibeOS">
             <intent-filter>

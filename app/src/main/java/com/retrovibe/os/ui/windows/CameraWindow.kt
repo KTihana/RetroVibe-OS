@@ -244,38 +244,23 @@ private fun choosePreviewSize(sizes: Array<AndroidSize>?, targetRatio: Float): A
     return pool.minByOrNull { abs(maxOf(it.width, it.height) - 1280) } ?: sizes.first()
 }
 
-private fun applyViewfinderTransform(
+private fun applyMirrorOnlyTransform(
     textureView: TextureView,
-    viewWidth: Int,
-    viewHeight: Int,
-    previewSize: AndroidSize,
-    sensorOrientation: Int,
     isFront: Boolean,
     mirrorEnabled: Boolean
 ) {
-    if (viewWidth <= 0 || viewHeight <= 0) return
-    val swapped = sensorOrientation == 90 || sensorOrientation == 270
-    val bufW = if (swapped) previewSize.height.toFloat() else previewSize.width.toFloat()
-    val bufH = if (swapped) previewSize.width.toFloat() else previewSize.height.toFloat()
-    val bufAspect = bufW / bufH
-    val viewAspect = viewWidth.toFloat() / viewHeight.toFloat()
-
-    val baseScaleX: Float
-    val baseScaleY: Float
-    if (bufAspect > viewAspect) {
-        baseScaleX = bufAspect / viewAspect
-        baseScaleY = 1f
-    } else {
-        baseScaleX = 1f
-        baseScaleY = viewAspect / bufAspect
-    }
-
+    val w = textureView.width
+    val h = textureView.height
+    if (w <= 0 || h <= 0) return
+    // Android TextureView mirrors front camera preview by default.
+    // Never apply non-uniform scale here — TextureView is already sized to exact previewAspect!
     val flipHorizontal = if (isFront) !mirrorEnabled else mirrorEnabled
-    val finalScaleX = if (flipHorizontal) -baseScaleX else baseScaleX
-
     val matrix = Matrix()
-    matrix.setScale(finalScaleX, baseScaleY, viewWidth / 2f, viewHeight / 2f)
+    if (flipHorizontal) {
+        matrix.setScale(-1f, 1f, w / 2f, h / 2f)
+    }
     textureView.setTransform(matrix)
+    textureView.invalidate()
 }
 
 private fun drawRetroDateStamp(bitmap: Bitmap) {
@@ -429,7 +414,8 @@ private class PureCameraController(
     private val onStatus: (String) -> Unit,
     private val onPhotoSaved: (uri: String, filename: String) -> Unit,
     private val onFlashAvailable: (Boolean) -> Unit,
-    private val onZoomRangeKnown: (Float, Float) -> Unit
+    private val onZoomRangeKnown: (Float, Float) -> Unit,
+    private val onPreviewAspectKnown: (Float) -> Unit
 ) {
     private val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private var bgThread: HandlerThread? = null
@@ -491,7 +477,7 @@ private class PureCameraController(
     fun refreshPreviewTransform() {
         val tv = textureView ?: return
         tv.post {
-            applyViewfinderTransform(tv, tv.width, tv.height, previewSize, sensorOrientation, isFront, mirrorEnabled)
+            applyMirrorOnlyTransform(tv, isFront, mirrorEnabled)
         }
     }
 
@@ -576,32 +562,31 @@ private class PureCameraController(
         bgThread = thread
         bgHandler = Handler(thread.looper)
 
-        // Always attach listener so aspect-ratio resizes ALWAYS recompute the true 1:1 pixel transform!
         view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                openCamera(w, h)
+                openCamera()
             }
             override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
-                applyViewfinderTransform(view, w, h, previewSize, sensorOrientation, isFront, mirrorEnabled)
+                applyMirrorOnlyTransform(view, isFront, mirrorEnabled)
             }
             override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean = true
             override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
         }
         val listener = android.view.View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             if (v === textureView && v.width > 0 && v.height > 0) {
-                applyViewfinderTransform(view, v.width, v.height, previewSize, sensorOrientation, isFront, mirrorEnabled)
+                applyMirrorOnlyTransform(view, isFront, mirrorEnabled)
             }
         }
         layoutListener = listener
         view.addOnLayoutChangeListener(listener)
 
         if (view.isAvailable) {
-            openCamera(view.width, view.height)
+            openCamera()
         }
     }
 
     @SuppressLint("MissingPermission")
-    private fun openCamera(viewW: Int, viewH: Int) {
+    private fun openCamera() {
         try {
             val camId = if (!isFront && targetCameraId != null) {
                 targetCameraId
@@ -642,9 +627,14 @@ private class PureCameraController(
             val ratio = captureSize.width.toFloat() / captureSize.height.toFloat()
             previewSize = choosePreviewSize(map?.getOutputSizes(SurfaceTexture::class.java), ratio)
 
+            val swapped = sensorOrientation == 90 || sensorOrientation == 270
+            val bufW = if (swapped) previewSize.height.toFloat() else previewSize.width.toFloat()
+            val bufH = if (swapped) previewSize.width.toFloat() else previewSize.height.toFloat()
+            onPreviewAspectKnown((bufW / bufH).coerceIn(0.4f, 2.5f))
+
             textureView?.let { tv ->
                 tv.post {
-                    applyViewfinderTransform(tv, viewW, viewH, previewSize, sensorOrientation, isFront, mirrorEnabled)
+                    applyMirrorOnlyTransform(tv, isFront, mirrorEnabled)
                 }
             }
 
@@ -832,6 +822,7 @@ fun CameraWindow(vm: OSViewModel, palette: RetroPalette) {
     var zoomRatio by remember { mutableFloatStateOf(1f) }
     var minZoom by remember { mutableFloatStateOf(1f) }
     var maxZoom by remember { mutableFloatStateOf(4f) }
+    var previewAspect by remember { mutableFloatStateOf(3f / 4f) }
 
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var focusSeq by remember { mutableIntStateOf(0) }
@@ -883,6 +874,11 @@ fun CameraWindow(vm: OSViewModel, palette: RetroPalette) {
                     minZoom = minZ
                     maxZoom = maxZ
                     zoomRatio = zoomRatio.coerceIn(minZ, maxZ)
+                }
+            },
+            onPreviewAspectKnown = { asp ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    previewAspect = asp
                 }
             }
         )
@@ -1181,6 +1177,10 @@ fun CameraWindow(vm: OSViewModel, palette: RetroPalette) {
                     val frameWPx = with(density) { frameW.toPx() }
                     val frameHPx = with(density) { frameH.toPx() }
 
+                    // Size TextureView to EXACT previewAspect covering frameW x frameH (mathematically impossible to warp/squish!)
+                    val tvW = if (previewAspect > targetRatio) frameH * previewAspect else frameW
+                    val tvH = if (previewAspect > targetRatio) frameH else frameW / previewAspect
+
                     Box(
                         modifier = Modifier
                             .size(frameW, frameH)
@@ -1241,7 +1241,9 @@ fun CameraWindow(vm: OSViewModel, palette: RetroPalette) {
                             update = { tv ->
                                 tv.post { controller.refreshPreviewTransform() }
                             },
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .requiredSize(tvW, tvH)
                         )
 
                         // Optional Rule-of-Thirds Grid
