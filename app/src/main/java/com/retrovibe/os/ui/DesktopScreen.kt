@@ -217,6 +217,7 @@ fun DesktopScreen(vm: OSViewModel) {
     val pendingTodos = vm.todos.count { todayIso() !in it.completedDates }
     val pendingReminders = vm.reminders.count { !it.completed }
 
+    val backContext = LocalContext.current
     // Intercept Back so pressing/swiping Back closes menus/windows cleanly and never exits when set as Home Launcher
     BackHandler(enabled = true) {
         when {
@@ -228,9 +229,9 @@ fun DesktopScreen(vm: OSViewModel) {
             vm.activeWindowId != null -> vm.closeWindow(vm.activeWindowId!!)
             else -> {
                 val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-                val defaultHomePkg = context.packageManager.resolveActivity(homeIntent, 0)?.activityInfo?.packageName
-                if (defaultHomePkg != context.packageName) {
-                    (context as? Activity)?.moveTaskToBack(true)
+                val defaultHomePkg = backContext.packageManager.resolveActivity(homeIntent, 0)?.activityInfo?.packageName
+                if (defaultHomePkg != backContext.packageName) {
+                    (backContext as? Activity)?.moveTaskToBack(true)
                 }
             }
         }
