@@ -210,44 +210,61 @@ fun MusicPlayerWindow(vm: OSViewModel, palette: RetroPalette) {
         Spacer(Modifier.height(6.dp))
 
         // Playlist
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .win98Bevel(sunken = true, bg = Color.White)
-                .padding(3.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+                .padding(3.dp)
         ) {
-            itemsIndexed(vm.tracks, key = { _, t -> t.id }) { idx, track ->
-                val selected = idx == currentIndex
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(if (selected) palette.accent else Color.Transparent)
-                        .clickable { playTrackAt(idx) }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            if (vm.tracks.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "${idx + 1}. ${track.title}",
+                        text = "No songs yet.\nTap + Add to load music from your phone!",
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        color = if (selected) Color.White else Color.Black,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        fontSize = 10.sp,
+                        color = Color(0xFF666666),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(12.dp)
                     )
-                    if (!track.isDemo) {
-                        Text(
-                            text = "[x]",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            color = if (selected) Color.White else Color(0xFFAA0000),
-                            modifier = Modifier.clickable {
-                                if (selected) stopAll()
-                                vm.removeTrack(track.id)
-                            }
-                        )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    itemsIndexed(vm.tracks, key = { _, t -> t.id }) { idx, track ->
+                        val selected = idx == currentIndex
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(if (selected) palette.accent else Color.Transparent)
+                                .clickable { playTrackAt(idx) }
+                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "${idx + 1}. ${track.title}",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = if (selected) Color.White else Color.Black,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            RetroButton(
+                                label = "×",
+                                palette = palette,
+                                onClick = {
+                                    if (selected) stopAll()
+                                    vm.removeTrack(track.id)
+                                    if (currentIndex >= vm.tracks.size) {
+                                        currentIndex = (vm.tracks.size - 1).coerceAtLeast(0)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }

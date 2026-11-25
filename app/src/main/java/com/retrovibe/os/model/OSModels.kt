@@ -117,6 +117,28 @@ data class IconPos(val x: Float, val y: Float)
 
 data class MailPopupAlert(val sender: String, val subject: String)
 
+data class ContactItem(
+    val id: String,
+    val name: String,
+    val phone: String,
+    val note: String = ""
+)
+
+data class AlarmItem(
+    val id: String,
+    val hour: Int,
+    val minute: Int,
+    val label: String = "Alarm",
+    val enabled: Boolean = true
+)
+
+data class BookItem(
+    val id: String,
+    val title: String,
+    val uri: String,
+    val currentPage: Int = 0
+)
+
 data class PersistedOSState(
     val themeId: ThemeId = ThemeId.DEAR_PASTEL,
     val customWallpaperUri: String? = null,
@@ -145,5 +167,11 @@ data class PersistedOSState(
     val crtScanlines: Boolean = true,
     val loginPromptEnabled: Boolean = false,
     val username: String = "RetroUser",
-    val githubRepo: String = "KTihana/RetroVibe-OS"
+    val githubRepo: String = "KTihana/RetroVibe-OS",
+    val contacts: List<ContactItem> = emptyList(),
+    val alarms: List<AlarmItem> = emptyList(),
+    val books: List<BookItem> = emptyList(),
+    val weatherCity: String = "Osijek",
+    val weatherLat: Double = 45.555,
+    val weatherLon: Double = 18.6955
 )

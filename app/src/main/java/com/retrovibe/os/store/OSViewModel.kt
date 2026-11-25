@@ -62,6 +62,16 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     var githubRepo by mutableStateOf("KTihana/RetroVibe-OS")
     var pendingBrowserUrl by mutableStateOf<String?>(null)
 
+    var contacts by mutableStateOf<List<ContactItem>>(emptyList())
+    var alarms by mutableStateOf<List<AlarmItem>>(emptyList())
+    var books by mutableStateOf<List<BookItem>>(emptyList())
+    var weatherCity by mutableStateOf("Osijek")
+    var weatherLat by mutableStateOf(45.555)
+    var weatherLon by mutableStateOf(18.6955)
+    var weatherTemp by mutableStateOf<Int?>(null)
+    var weatherCode by mutableStateOf<Int?>(null)
+    var torchOn by mutableStateOf(false)
+
     fun openBrowserUrl(url: String) {
         pendingBrowserUrl = url
         openWindow("browser")
@@ -93,7 +103,13 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             WindowState("calc", "Calculator", x = 36f, y = 70f, width = 292f, height = 314f),
             WindowState("terminal", "MS-DOS Prompt", x = 16f, y = 64f, width = 336f, height = 320f),
             WindowState("run", "Run", x = 22f, y = 140f, width = 314f, height = 184f),
-            WindowState("taskmgr", "Task Manager", x = 18f, y = 70f, width = 328f, height = 380f)
+            WindowState("taskmgr", "Task Manager", x = 18f, y = 70f, width = 328f, height = 380f),
+            WindowState("phone", "Phone & Address Book", x = 16f, y = 40f, width = 332f, height = 460f),
+            WindowState("clock", "Clock, Alarms & Timer", x = 16f, y = 48f, width = 332f, height = 430f),
+            WindowState("control", "Control Panel", x = 18f, y = 52f, width = 328f, height = 420f),
+            WindowState("weather", "Weather Forecast", x = 22f, y = 60f, width = 320f, height = 370f),
+            WindowState("reader", "RetroVibe Reader", isMaximized = true, x = 10f, y = 24f, width = 350f, height = 500f),
+            WindowState("phoneapps", "Phone Apps", x = 18f, y = 44f, width = 328f, height = 450f)
         )
         defaults.forEach { windows[it.id] = it }
     }
@@ -115,11 +131,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
         )
         todos = emptyList()
         reminders = emptyList()
-        tracks = listOf(
-            MusicTrack("demo-1", "01. Intro : CODE (Chiptune)", "RetroVibe OS Synth", isDemo = true),
-            MusicTrack("demo-2", "02. Sweet Algorithm", "RetroVibe OS Synth", isDemo = true),
-            MusicTrack("demo-3", "03. Pixel Heart", "RetroVibe OS Synth", isDemo = true)
-        )
+        tracks = emptyList()
         calendarEntries = mapOf(
             todayIso() to CalendarDayEntry(todayIso(), "heart", "Started using RetroVibe OS!")
         )
@@ -152,7 +164,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
                 r.copy(showPopup = isDue)
             }
             todos = s.todos
-            tracks = s.tracks
+            tracks = s.tracks.filterNot { it.isDemo }
             voiceMemos = s.voiceMemos
             artworks = s.artworks
             permittedPhotos = s.permittedPhotos
@@ -170,6 +182,12 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             loginPromptEnabled = s.loginPromptEnabled
             username = s.username
             githubRepo = s.githubRepo
+            contacts = s.contacts
+            alarms = s.alarms
+            books = s.books
+            weatherCity = s.weatherCity.ifBlank { "Osijek" }
+            weatherLat = s.weatherLat
+            weatherLon = s.weatherLon
         } catch (_: Throwable) {
             seedDefaults()
         }
@@ -202,7 +220,13 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             crtScanlines = crtScanlines,
             loginPromptEnabled = loginPromptEnabled,
             username = username,
-            githubRepo = githubRepo
+            githubRepo = githubRepo,
+            contacts = contacts,
+            alarms = alarms,
+            books = books,
+            weatherCity = weatherCity,
+            weatherLat = weatherLat,
+            weatherLon = weatherLon
         )
         prefs.edit().putString(key, gson.toJson(snap)).apply()
     }
@@ -309,6 +333,31 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
         persist()
     }
 
+    fun renameFolder(id: String, newName: String) {
+        val clean = newName.trim()
+        if (clean.isEmpty()) return
+        RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
+        folders = folders.map { if (it.id == id) it.copy(name = clean) else it }
+        persist()
+    }
+
+    fun createTextFile(title: String, content: String = "", folderId: String = "root-notes"): NoteItem {
+        val id = "note-${System.currentTimeMillis()}"
+        val cleanTitle = title.trim().ifEmpty { "Note_${notes.size + 1}.txt" }
+        val note = NoteItem(
+            id = id,
+            title = cleanTitle,
+            content = content,
+            folderId = folderId,
+            pinnedToDesktop = false,
+            x = 40f + (notes.size % 4) * 16f,
+            y = 70f + (notes.size % 4) * 20f
+        )
+        notes = listOf(note) + notes
+        persist()
+        return note
+    }
+
     fun deleteFolder(id: String) {
         if (id.startsWith("root-")) return
         RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
@@ -339,7 +388,9 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteTodo(id: String) {
         RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = todos.find { it.id == id } ?: return
         todos = todos.filterNot { it.id == id }
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "todo", target.title, gson.toJson(target))) + trash
         persist()
     }
 
@@ -388,7 +439,9 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteReminder(id: String) {
         RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = reminders.find { it.id == id } ?: return
         reminders = reminders.filterNot { it.id == id }
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "reminder", target.title, gson.toJson(target))) + trash
         persist()
     }
 
@@ -401,7 +454,9 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeTrack(id: String) {
         RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = tracks.find { it.id == id } ?: return
         tracks = tracks.filterNot { it.id == id }
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "music", target.title, gson.toJson(target))) + trash
         persist()
     }
 
@@ -413,11 +468,20 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removePermittedPhoto(id: String) {
         RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = permittedPhotos.find { it.id == id } ?: return
         permittedPhotos = permittedPhotos.filterNot { it.id == id }
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "photo", target.filename, gson.toJson(target))) + trash
         persist()
     }
 
     fun clearPermittedPhotos() {
+        if (permittedPhotos.isEmpty()) return
+        RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val now = System.currentTimeMillis()
+        val trashed = permittedPhotos.mapIndexed { idx, p ->
+            TrashItem("trash-$now-$idx", "photo", p.filename, gson.toJson(p))
+        }
+        trash = trashed + trash
         permittedPhotos = emptyList()
         persist()
     }
@@ -469,7 +533,37 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             "folder" -> folders = folders + gson.fromJson(item.payloadJson, FolderItem::class.java)
             "memo" -> voiceMemos = listOf(gson.fromJson(item.payloadJson, VoiceMemo::class.java)) + voiceMemos
             "artwork" -> artworks = listOf(gson.fromJson(item.payloadJson, PaintArtwork::class.java)) + artworks
+            "photo" -> {
+                val restored = gson.fromJson(item.payloadJson, PermittedPhoto::class.java)
+                if (permittedPhotos.none { it.uri == restored.uri }) {
+                    permittedPhotos = listOf(restored) + permittedPhotos
+                }
+            }
+            "music" -> {
+                val restored = gson.fromJson(item.payloadJson, MusicTrack::class.java)
+                tracks = tracks + restored
+            }
+            "todo" -> todos = listOf(gson.fromJson(item.payloadJson, TodoItem::class.java)) + todos
+            "reminder" -> reminders = listOf(gson.fromJson(item.payloadJson, ReminderItem::class.java)) + reminders
+            "favorite" -> {
+                val restored = gson.fromJson(item.payloadJson, BrowserFavorite::class.java)
+                if (browserFavorites.none { it.url == restored.url }) {
+                    browserFavorites = listOf(restored) + browserFavorites
+                }
+            }
+            "contact" -> contacts = listOf(gson.fromJson(item.payloadJson, ContactItem::class.java)) + contacts
+            "alarm" -> alarms = listOf(gson.fromJson(item.payloadJson, AlarmItem::class.java)) + alarms
+            "book" -> {
+                val restored = gson.fromJson(item.payloadJson, BookItem::class.java)
+                if (books.none { it.uri == restored.uri }) books = listOf(restored) + books
+            }
         }
+        trash = trash.filterNot { it.id == trashId }
+        persist()
+    }
+
+    fun deleteTrashItem(trashId: String) {
+        RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
         trash = trash.filterNot { it.id == trashId }
         persist()
     }
@@ -579,7 +673,9 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeBrowserFavorite(id: String) {
         RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = browserFavorites.find { it.id == id } ?: return
         browserFavorites = browserFavorites.filterNot { it.id == id }
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "favorite", target.title, gson.toJson(target))) + trash
         persist()
     }
 
@@ -592,5 +688,77 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissMailPopup() {
         RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
         mailPopupAlert = null
+    }
+
+    // Contacts
+    fun addContact(name: String, phone: String, note: String = "") {
+        if (name.isBlank() || phone.isBlank()) return
+        RetroSoundEngine.play(RetroSound.SUCCESS, soundEnabled)
+        contacts = (contacts + ContactItem("cnt-${System.currentTimeMillis()}", name.trim(), phone.trim(), note.trim()))
+            .sortedBy { it.name.lowercase() }
+        persist()
+    }
+
+    fun deleteContact(id: String) {
+        RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = contacts.find { it.id == id } ?: return
+        contacts = contacts.filterNot { it.id == id }
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "contact", target.name, gson.toJson(target))) + trash
+        persist()
+    }
+
+    // Alarms
+    fun addAlarm(hour: Int, minute: Int, label: String) {
+        RetroSoundEngine.play(RetroSound.SUCCESS, soundEnabled)
+        alarms = (alarms + AlarmItem("alm-${System.currentTimeMillis()}", hour.coerceIn(0, 23), minute.coerceIn(0, 59), label.ifBlank { "Alarm" }, true))
+            .sortedWith(compareBy({ it.hour }, { it.minute }))
+        persist()
+    }
+
+    fun toggleAlarm(id: String) {
+        RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
+        alarms = alarms.map { if (it.id == id) it.copy(enabled = !it.enabled) else it }
+        persist()
+    }
+
+    fun deleteAlarm(id: String) {
+        RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = alarms.find { it.id == id } ?: return
+        alarms = alarms.filterNot { it.id == id }
+        val timeStr = "%02d:%02d".format(target.hour, target.minute)
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "alarm", "$timeStr ${target.label}", gson.toJson(target))) + trash
+        persist()
+    }
+
+    // E-Books
+    fun addBook(title: String, uri: String): BookItem {
+        val existing = books.find { it.uri == uri }
+        if (existing != null) return existing
+        RetroSoundEngine.play(RetroSound.SUCCESS, soundEnabled)
+        val item = BookItem("book-${System.currentTimeMillis()}", title.trim().ifEmpty { "Untitled Book" }, uri, 0)
+        books = listOf(item) + books
+        persist()
+        return item
+    }
+
+    fun updateBookPage(id: String, page: Int) {
+        books = books.map { if (it.id == id) it.copy(currentPage = page.coerceAtLeast(0)) else it }
+        persist()
+    }
+
+    fun deleteBook(id: String) {
+        RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
+        val target = books.find { it.id == id } ?: return
+        books = books.filterNot { it.id == id }
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "book", target.title, gson.toJson(target))) + trash
+        persist()
+    }
+
+    // Weather
+    fun setWeatherLocation(city: String, lat: Double, lon: Double) {
+        weatherCity = city
+        weatherLat = lat
+        weatherLon = lon
+        persist()
     }
 }

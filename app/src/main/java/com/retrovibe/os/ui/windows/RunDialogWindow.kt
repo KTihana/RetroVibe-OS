@@ -60,6 +60,16 @@ fun RunDialogWindow(vm: OSViewModel, palette: RetroPalette) {
             "gallery" to "gallery",
             "camera" to "camera",
             "cam" to "camera",
+            "phone" to "phone",
+            "dialer" to "phone",
+            "clock" to "clock",
+            "alarm" to "clock",
+            "timer" to "clock",
+            "control" to "control",
+            "weather" to "weather",
+            "reader" to "reader",
+            "books" to "reader",
+            "apps" to "phoneapps",
             "recorder" to "recorder"
         )
         when {

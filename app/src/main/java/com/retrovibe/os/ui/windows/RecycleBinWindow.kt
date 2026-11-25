@@ -51,15 +51,24 @@ fun RecycleBinContent(vm: OSViewModel) {
                             "note" -> "note"
                             "artwork" -> "paint"
                             "memo" -> "mic"
+                            "photo" -> "gallery"
+                            "music" -> "music"
+                            "todo" -> "habit"
+                            "reminder" -> "reminder"
+                            "favorite" -> "ie"
+                            "contact" -> "phone"
+                            "alarm" -> "clock"
+                            "book" -> "book"
                             else -> "folder"
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                             PixelIcon(icon, 22.dp)
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
                                 Text(item.type.uppercase(), fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = theme.textSecondary)
                             }
                             RetroButton("Restore", theme, vm.soundEnabled, onClick = { vm.restoreTrashItem(item.id) })
+                            RetroButton("×", theme, vm.soundEnabled, onClick = { vm.deleteTrashItem(item.id) })
                         }
                         HorizontalDivider(color = theme.borderDark, thickness = 1.dp)
                     }

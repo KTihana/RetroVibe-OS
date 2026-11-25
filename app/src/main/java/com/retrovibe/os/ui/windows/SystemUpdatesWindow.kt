@@ -82,76 +82,19 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
     var checking by remember { mutableStateOf(false) }
     var downloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
-    var statusText by remember { mutableStateOf("Checking GitHub Releases...") }
+    var statusText by remember { mutableStateOf("Checking for updates...") }
     var latestVersion by remember { mutableStateOf<String?>(null) }
     var apkDownloadUrl by remember { mutableStateOf<String?>(null) }
-    var releasePageUrl by remember { mutableStateOf<String?>(null) }
+    var downloadedApkFile by remember { mutableStateOf<File?>(null) }
     var releaseNotes by remember { mutableStateOf<String?>(null) }
     var updateAvailable by remember { mutableStateOf(false) }
 
     val bm = remember { context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager }
     val batteryPct = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 } ?: 100
 
-    fun checkGitHubUpdates() {
-        val repo = repoInput.trim().removePrefix("https://github.com/").trim('/')
-        if (!repo.contains("/")) {
-            statusText = "Format must be: username/repository"
-            RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
-            return
-        }
-        vm.githubRepo = repo
-        vm.persist()
-        checking = true
-        statusText = "Contacting GitHub Releases API..."
-        scope.launch {
-            try {
-                val res = withContext(Dispatchers.IO) {
-                    val conn = URL("https://api.github.com/repos/$repo/releases/latest").openConnection() as HttpURLConnection
-                    conn.setRequestProperty("Accept", "application/vnd.github+json")
-                    conn.setRequestProperty("User-Agent", "RetroVibe-OS-Android")
-                    conn.connectTimeout = 8000
-                    conn.readTimeout = 8000
-                    if (conn.responseCode == 404) throw IllegalStateException("No published GitHub releases yet.")
-                    if (conn.responseCode !in 200..299) throw IllegalStateException("GitHub HTTP ${conn.responseCode}")
-                    JSONObject(conn.inputStream.bufferedReader().readText())
-                }
-                val tag = res.optString("tag_name").removePrefix("v")
-                val htmlUrl = res.optString("html_url")
-                val assets = res.optJSONArray("assets")
-                var apkUrl: String? = null
-                if (assets != null) {
-                    for (i in 0 until assets.length()) {
-                        val a = assets.getJSONObject(i)
-                        if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
-                            apkUrl = a.optString("browser_download_url")
-                            break
-                        }
-                    }
-                }
-                latestVersion = tag
-                apkDownloadUrl = apkUrl
-                releasePageUrl = htmlUrl.ifBlank { "https://github.com/$repo/releases/latest" }
-                releaseNotes = res.optString("body").take(320)
-                val newer = isNewerVersion(tag, installedVersion)
-                updateAvailable = newer
-                statusText = if (newer) {
-                    "Update available: v$tag (installed: v$installedVersion)"
-                } else {
-                    "You are up to date! (v$installedVersion)"
-                }
-                RetroSoundEngine.play(RetroSound.SUCCESS, vm.soundEnabled)
-            } catch (e: Throwable) {
-                statusText = "Update check failed: ${e.message}"
-                RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
-            } finally {
-                checking = false
-            }
-        }
-    }
-
     fun installApkFile(apkFile: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
-            statusText = "Enable 'Install unknown apps' for RetroVibe OS, then tap Install again."
+            statusText = "Allow 'Install unknown apps' for RetroVibe OS, then tap Install APK."
             val permIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:${context.packageName}")
@@ -169,11 +112,12 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
         statusText = "Installer opened! Tap Update to finish."
     }
 
-    fun downloadAndInstallUpdate() {
-        val url = apkDownloadUrl ?: return
+    fun downloadAndInstallUpdate(overrideUrl: String? = null) {
+        val url = overrideUrl ?: apkDownloadUrl ?: return
+        if (downloading) return
         downloading = true
         downloadProgress = 0f
-        statusText = "Downloading RetroVibe-OS.apk..."
+        statusText = "Downloading update..."
         scope.launch {
             try {
                 val outFile = withContext(Dispatchers.IO) {
@@ -197,7 +141,7 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
                                     val pct = (copied.toFloat() / total.toFloat()).coerceIn(0f, 1f)
                                     withContext(Dispatchers.Main) {
                                         downloadProgress = pct
-                                        statusText = "Downloading... ${(pct * 100).toInt()}%"
+                                        statusText = "Downloading v${latestVersion ?: ""}... ${(pct * 100).toInt()}%"
                                     }
                                 }
                             }
@@ -206,6 +150,7 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
                     conn.disconnect()
                     file
                 }
+                downloadedApkFile = outFile
                 downloadProgress = 1f
                 RetroSoundEngine.play(RetroSound.SUCCESS, vm.soundEnabled)
                 installApkFile(outFile)
@@ -218,9 +163,69 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
         }
     }
 
-    // Auto-check as soon as Updates window is opened
+    fun checkGitHubUpdates(autoDownload: Boolean = true) {
+        val repo = repoInput.trim().removePrefix("https://github.com/").trim('/')
+        if (!repo.contains("/")) {
+            statusText = "Format must be: username/repository"
+            RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
+            return
+        }
+        vm.githubRepo = repo
+        vm.persist()
+        checking = true
+        statusText = "Checking for updates..."
+        scope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) {
+                    val conn = URL("https://api.github.com/repos/$repo/releases/latest").openConnection() as HttpURLConnection
+                    conn.setRequestProperty("Accept", "application/vnd.github+json")
+                    conn.setRequestProperty("User-Agent", "RetroVibe-OS-Android")
+                    conn.connectTimeout = 8000
+                    conn.readTimeout = 8000
+                    if (conn.responseCode == 404) throw IllegalStateException("No published releases yet.")
+                    if (conn.responseCode !in 200..299) throw IllegalStateException("HTTP ${conn.responseCode}")
+                    JSONObject(conn.inputStream.bufferedReader().readText())
+                }
+                val tag = res.optString("tag_name").removePrefix("v")
+                val assets = res.optJSONArray("assets")
+                var apkUrl: String? = null
+                if (assets != null) {
+                    for (i in 0 until assets.length()) {
+                        val a = assets.getJSONObject(i)
+                        if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
+                            apkUrl = a.optString("browser_download_url")
+                            break
+                        }
+                    }
+                }
+                latestVersion = tag
+                apkDownloadUrl = apkUrl
+                releaseNotes = res.optString("body").take(320)
+                val newer = isNewerVersion(tag, installedVersion)
+                updateAvailable = newer
+                checking = false
+
+                if (newer && apkUrl != null && autoDownload) {
+                    statusText = "Found v$tag! Starting download..."
+                    downloadAndInstallUpdate(apkUrl)
+                } else if (newer) {
+                    statusText = "Update available: v$tag (installed: v$installedVersion)"
+                    RetroSoundEngine.play(RetroSound.SUCCESS, vm.soundEnabled)
+                } else {
+                    statusText = "You are up to date! (v$installedVersion)"
+                    RetroSoundEngine.play(RetroSound.SUCCESS, vm.soundEnabled)
+                }
+            } catch (e: Throwable) {
+                checking = false
+                statusText = "Update check failed: ${e.message}"
+                RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
+            }
+        }
+    }
+
+    // Auto-check and auto-download if a newer version is available
     LaunchedEffect(Unit) {
-        checkGitHubUpdates()
+        checkGitHubUpdates(autoDownload = true)
     }
 
     Column(
@@ -273,16 +278,24 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 RetroButton(
-                    label = if (checking) "Checking..." else "Check Now",
+                    label = if (checking) "Checking..." else "Check & Update",
                     palette = palette,
-                    active = !updateAvailable,
-                    onClick = { if (!checking && !downloading) checkGitHubUpdates() }
+                    active = !updateAvailable && downloadedApkFile == null,
+                    onClick = { if (!checking && !downloading) checkGitHubUpdates(autoDownload = true) }
                 )
-                if (apkDownloadUrl != null) {
+                val readyFile = downloadedApkFile
+                if (readyFile != null && readyFile.exists() && !downloading) {
+                    RetroButton(
+                        label = "Install APK",
+                        palette = palette,
+                        active = true,
+                        onClick = { installApkFile(readyFile) }
+                    )
+                } else if (apkDownloadUrl != null) {
                     RetroButton(
                         label = when {
                             downloading -> "Downloading..."
-                            updateAvailable -> "Install v${latestVersion ?: ""}"
+                            updateAvailable -> "Download v${latestVersion ?: ""}"
                             else -> "Reinstall v${latestVersion ?: ""}"
                         },
                         palette = palette,
@@ -319,19 +332,6 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
 
             if (!releaseNotes.isNullOrBlank()) {
                 Text(releaseNotes!!, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = Color(0xFF333333))
-            }
-
-            if (releasePageUrl != null) {
-                RetroButton(
-                    label = "Open Release Page",
-                    palette = palette,
-                    onClick = {
-                        try {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releasePageUrl)))
-                        } catch (_: Throwable) {
-                        }
-                    }
-                )
             }
         }
     }

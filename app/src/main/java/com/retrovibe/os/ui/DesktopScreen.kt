@@ -219,6 +219,10 @@ fun DesktopScreen(vm: OSViewModel) {
         DesktopShortcut("icon-explorer", "My Computer", "computer", "explorer"),
         DesktopShortcut("icon-gallery", "My Pictures", "gallery", "gallery"),
         DesktopShortcut("icon-camera", "Camera", "camera", "camera"),
+        DesktopShortcut("icon-phone", "Phone", "phone", "phone"),
+        DesktopShortcut("icon-clock", "Clock", "clock", "clock"),
+        DesktopShortcut("icon-reader", "E-Reader", "book", "reader"),
+        DesktopShortcut("icon-control", "Control Panel", "control", "control"),
         DesktopShortcut("icon-music", "Music", "music", "music"),
         DesktopShortcut("icon-calendar", "Calendar", "calendar", "calendar"),
         DesktopShortcut("icon-reminders", "Reminders", "reminder", "reminders", badgeCount = pendingReminders),
@@ -497,6 +501,12 @@ fun DesktopScreen(vm: OSViewModel) {
                         win.id == "terminal" -> "terminal"
                         win.id == "run" -> "run"
                         win.id == "taskmgr" -> "taskmgr"
+                        win.id == "phone" -> "phone"
+                        win.id == "clock" -> "clock"
+                        win.id == "control" -> "control"
+                        win.id == "weather" -> "weather"
+                        win.id == "reader" -> "book"
+                        win.id == "phoneapps" -> "phoneapps"
                         else -> "note"
                     }
                     RetroWindow(
@@ -533,6 +543,12 @@ fun DesktopScreen(vm: OSViewModel) {
                             win.id == "terminal" -> TerminalWindow(vm, theme)
                             win.id == "run" -> RunDialogWindow(vm, theme)
                             win.id == "taskmgr" -> TaskManagerWindow(vm, theme)
+                            win.id == "phone" -> PhoneWindow(vm, theme)
+                            win.id == "clock" -> ClockWindow(vm, theme)
+                            win.id == "control" -> ControlPanelWindow(vm, theme)
+                            win.id == "weather" -> WeatherWindow(vm, theme)
+                            win.id == "reader" -> BookReaderWindow(vm, theme)
+                            win.id == "phoneapps" -> PhoneAppsWindow(vm, theme)
                         }
                     }
                     }
@@ -674,6 +690,10 @@ fun DesktopScreen(vm: OSViewModel) {
                         StartMenuEntry("Music Player", "music", "icon-music") { vm.openWindow("music") },
                         StartMenuEntry("Sound Recorder", "recorder", "icon-recorder") { vm.openWindow("recorder") },
                         StartMenuEntry("Camera", "camera", "icon-camera") { vm.openWindow("camera") },
+                        StartMenuEntry("Phone", "phone", "icon-phone") { vm.openWindow("phone") },
+                        StartMenuEntry("Clock & Timer", "clock", "icon-clock") { vm.openWindow("clock") },
+                        StartMenuEntry("E-Reader", "book", "icon-reader") { vm.openWindow("reader") },
+                        StartMenuEntry("Phone Apps", "phoneapps") { vm.openWindow("phoneapps") },
                         StartMenuEntry("Calendar", "calendar", "icon-calendar") { vm.openWindow("calendar") },
                         StartMenuEntry("Reminders", "reminder", "icon-reminders") { vm.openWindow("reminders") },
                         StartMenuEntry("To do list", "habit", "icon-habits") { vm.openWindow("habits") }
@@ -687,8 +707,10 @@ fun DesktopScreen(vm: OSViewModel) {
                         StartMenuEntry("HeartSweeper", "sweeper", "icon-sweeper") { vm.openWindow("sweeper") }
                     )
                     val settingsList = listOf(
+                        StartMenuEntry("Control Panel", "control", "icon-control") { vm.openWindow("control") },
                         StartMenuEntry("Display", "settings", "icon-settings") { vm.openWindow("settings") },
                         StartMenuEntry("Updates", "status", "icon-status") { vm.openWindow("status") },
+                        StartMenuEntry("Weather", "weather") { vm.openWindow("weather") },
                         StartMenuEntry(if (vm.deskCatEnabled) "Hide Desk Cat" else "Summon Desk Cat", "cat") {
                             vm.deskCatEnabled = !vm.deskCatEnabled
                             vm.persist()
@@ -1019,6 +1041,15 @@ fun DesktopScreen(vm: OSViewModel) {
                     }
                 }
 
+                // Gentle background weather refresh for the taskbar pill
+                LaunchedEffect(vm.weatherLat, vm.weatherLon) {
+                    val snap = fetchWeatherSnapshot(vm.weatherLat, vm.weatherLon)
+                    if (snap != null) {
+                        vm.weatherTemp = snap.first.first
+                        vm.weatherCode = snap.first.second
+                    }
+                }
+
                 // System Tray
                 Row(
                     modifier = Modifier
@@ -1034,11 +1065,24 @@ fun DesktopScreen(vm: OSViewModel) {
                     }) {
                         PixelIcon(if (vm.soundEnabled) "speaker" else "speakerMute", 14.dp)
                     }
-                    Box(Modifier.clickable {
-                        vm.deskCatEnabled = !vm.deskCatEnabled
-                        vm.persist()
-                    }) {
-                        PixelIcon("cat", 14.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.clickable {
+                            RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
+                            vm.openWindow("weather")
+                        }
+                    ) {
+                        PixelIcon("weather", 14.dp)
+                        if (vm.weatherTemp != null) {
+                            Text(
+                                text = "${vm.weatherTemp}°",
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = theme.textPrimary
+                            )
+                        }
                     }
                     Text(
                         text = clockStr,
@@ -1046,7 +1090,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp,
                         color = theme.textPrimary,
-                        modifier = Modifier.clickable { vm.openWindow("calendar") }
+                        modifier = Modifier.clickable { vm.openWindow("clock") }
                     )
                 }
             }
