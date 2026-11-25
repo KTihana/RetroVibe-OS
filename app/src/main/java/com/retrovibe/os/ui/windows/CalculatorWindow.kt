@@ -1,7 +1,10 @@
 package com.retrovibe.os.ui.windows
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -9,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -20,6 +24,7 @@ import com.retrovibe.os.audio.RetroSoundEngine
 import com.retrovibe.os.store.OSViewModel
 import com.retrovibe.os.theme.RetroPalette
 import com.retrovibe.os.ui.win98Bevel
+import kotlinx.coroutines.delay
 import java.text.DecimalFormat
 import kotlin.math.sqrt
 
@@ -99,11 +104,29 @@ fun CalculatorWindow(vm: OSViewModel, palette: RetroPalette) {
         modifier: Modifier = Modifier,
         onClick: () -> Unit
     ) {
+        val view = LocalView.current
+        val interaction = remember { MutableInteractionSource() }
+        val pressed by interaction.collectIsPressedAsState()
+        var clickFlash by remember { mutableStateOf(false) }
+        var clickSeq by remember { mutableIntStateOf(0) }
+        LaunchedEffect(clickSeq) {
+            if (clickSeq > 0) {
+                clickFlash = true
+                delay(120)
+                clickFlash = false
+            }
+        }
+        val isDown = pressed || clickFlash
         Box(
             modifier = modifier
                 .height(30.dp)
-                .win98Bevel(sunken = false, bg = Color(0xFFD4D0C8))
-                .clickable { onClick() },
+                .win98Bevel(sunken = isDown, bg = if (isDown) Color(0xFFB5B0A6) else Color(0xFFD4D0C8))
+                .clickable(interactionSource = interaction, indication = null) {
+                    clickSeq++
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    onClick()
+                }
+                .offset(x = if (isDown) 1.5.dp else 0.dp, y = if (isDown) 1.5.dp else 0.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(

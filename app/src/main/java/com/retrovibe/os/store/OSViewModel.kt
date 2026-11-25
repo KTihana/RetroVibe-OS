@@ -60,6 +60,12 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     var loginPromptEnabled by mutableStateOf(false)
     var username by mutableStateOf("RetroUser")
     var githubRepo by mutableStateOf("KTihana/RetroVibe-OS")
+    var pendingBrowserUrl by mutableStateOf<String?>(null)
+
+    fun openBrowserUrl(url: String) {
+        pendingBrowserUrl = url
+        openWindow("browser")
+    }
 
     init {
         initWindows()
@@ -70,6 +76,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
         val defaults = listOf(
             WindowState("explorer", "C:\\RETROVIBE\\", x = 14f, y = 40f, width = 336f, height = 420f),
             WindowState("gallery", "My Pictures (Permitted)", x = 14f, y = 40f, width = 336f, height = 430f),
+            WindowState("camera", "RetroVibe Camera", x = 14f, y = 32f, width = 340f, height = 480f),
             WindowState("music", "Playlist.wpl", x = 18f, y = 80f, width = 324f, height = 340f),
             WindowState("calendar", "Calendar", x = 16f, y = 50f, width = 332f, height = 382f),
             WindowState("reminders", "Reminders.exe", x = 18f, y = 60f, width = 326f, height = 390f),
@@ -80,7 +87,8 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             WindowState("settings", "Display Properties", x = 14f, y = 32f, width = 340f, height = 480f),
             WindowState("status", "System & Updates", x = 18f, y = 56f, width = 326f, height = 370f),
             WindowState("sweeper", "HeartSweeper", x = 14f, y = 36f, width = 344f, height = 470f),
-            WindowState("browser", "Internet Explorer - RetroVibe OS", isMaximized = true, x = 10f, y = 20f, width = 356f, height = 500f),
+            WindowState("browser", "Internet Voyager - RetroVibe OS", isMaximized = true, x = 10f, y = 20f, width = 356f, height = 500f),
+            WindowState("qrscanner", "QR Scanner", x = 16f, y = 36f, width = 336f, height = 450f),
             WindowState("mail", "RetroVibe Express - Mail", x = 14f, y = 40f, width = 344f, height = 440f),
             WindowState("calc", "Calculator", x = 36f, y = 70f, width = 292f, height = 314f),
             WindowState("terminal", "MS-DOS Prompt", x = 16f, y = 64f, width = 336f, height = 320f),

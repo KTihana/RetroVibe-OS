@@ -1,6 +1,7 @@
 package com.retrovibe.os.ui
 
 import android.app.Activity
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,6 +9,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -19,11 +22,13 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -213,12 +218,13 @@ fun DesktopScreen(vm: OSViewModel) {
     val baseShortcuts = listOf(
         DesktopShortcut("icon-explorer", "My Computer", "computer", "explorer"),
         DesktopShortcut("icon-gallery", "My Pictures", "gallery", "gallery"),
+        DesktopShortcut("icon-camera", "Camera", "camera", "camera"),
         DesktopShortcut("icon-music", "Music", "music", "music"),
         DesktopShortcut("icon-calendar", "Calendar", "calendar", "calendar"),
         DesktopShortcut("icon-reminders", "Reminders", "reminder", "reminders", badgeCount = pendingReminders),
         DesktopShortcut("icon-habits", "To do list", "habit", "habits", badgeCount = pendingTodos),
         DesktopShortcut("icon-paint", "MS Paint", "paint", "paint"),
-        DesktopShortcut("icon-browser", "Internet", "ie", "browser"),
+        DesktopShortcut("icon-browser", "Internet Voyager", "ie", "browser"),
         DesktopShortcut("icon-mail", "E-mail", "mail", "mail"),
         DesktopShortcut("icon-recycle", if (vm.trash.isEmpty()) "Recycle Bin" else "Recycle Bin", "recycle", "recycle", badgeCount = vm.trash.size),
         DesktopShortcut("icon-sweeper", "HeartSweeper", "sweeper", "sweeper"),
@@ -473,6 +479,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         win.id.startsWith("note:") -> "note"
                         win.id == "explorer" -> "computer"
                         win.id == "gallery" -> "gallery"
+                        win.id == "camera" -> "camera"
                         win.id == "music" -> "music"
                         win.id == "calendar" -> "calendar"
                         win.id == "reminders" -> "reminder"
@@ -484,6 +491,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         win.id == "status" -> "status"
                         win.id == "sweeper" -> "sweeper"
                         win.id == "browser" -> "ie"
+                        win.id == "qrscanner" -> "qr"
                         win.id == "mail" -> "mail"
                         win.id == "calc" -> "calc"
                         win.id == "terminal" -> "terminal"
@@ -507,6 +515,7 @@ fun DesktopScreen(vm: OSViewModel) {
                             }
                             win.id == "explorer" -> FileExplorerContent(vm)
                             win.id == "gallery" -> GalleryWindow(vm, theme)
+                            win.id == "camera" -> CameraWindow(vm, theme)
                             win.id == "music" -> MusicPlayerWindow(vm, theme)
                             win.id == "calendar" -> CalendarContent(vm)
                             win.id == "reminders" -> RemindersContent(vm)
@@ -518,6 +527,7 @@ fun DesktopScreen(vm: OSViewModel) {
                             win.id == "status" -> SystemUpdatesWindow(vm, theme)
                             win.id == "sweeper" -> HeartSweeperWindow(vm, theme)
                             win.id == "browser" -> BrowserWindow(vm, theme)
+                            win.id == "qrscanner" -> QrScannerWindow(vm, theme)
                             win.id == "mail" -> EmailWindow(vm, theme)
                             win.id == "calc" -> CalculatorWindow(vm, theme)
                             win.id == "terminal" -> TerminalWindow(vm, theme)
@@ -658,10 +668,12 @@ fun DesktopScreen(vm: OSViewModel) {
                     val programsList = listOf(
                         StartMenuEntry("MS Paint", "paint", "icon-paint") { vm.openWindow("paint") },
                         StartMenuEntry("Calculator", "calc", "icon-calc") { vm.openWindow("calc") },
-                        StartMenuEntry("Internet", "ie", "icon-browser") { vm.openWindow("browser") },
+                        StartMenuEntry("Internet Voyager", "ie", "icon-browser") { vm.openWindow("browser") },
+                        StartMenuEntry("QR Scanner", "qr") { vm.openWindow("qrscanner") },
                         StartMenuEntry("E-mail", "mail", "icon-mail") { vm.openWindow("mail") },
                         StartMenuEntry("Music Player", "music", "icon-music") { vm.openWindow("music") },
                         StartMenuEntry("Sound Recorder", "recorder", "icon-recorder") { vm.openWindow("recorder") },
+                        StartMenuEntry("Camera", "camera", "icon-camera") { vm.openWindow("camera") },
                         StartMenuEntry("Calendar", "calendar", "icon-calendar") { vm.openWindow("calendar") },
                         StartMenuEntry("Reminders", "reminder", "icon-reminders") { vm.openWindow("reminders") },
                         StartMenuEntry("To do list", "habit", "icon-habits") { vm.openWindow("habits") }
@@ -954,20 +966,37 @@ fun DesktopScreen(vm: OSViewModel) {
                 ) {
                     vm.windows.values.filter { it.isOpen }.forEach { win ->
                         val active = vm.activeWindowId == win.id && !win.isMinimized
+                        val tabView = LocalView.current
+                        var tabPressed by remember { mutableStateOf(false) }
+                        val tabDown = active || tabPressed
+                        val tabBg = if (tabPressed) {
+                            theme.titleBarActive.copy(alpha = 0.28f).compositeOver(if (active) theme.accentSoft else theme.windowBg)
+                        } else if (active) {
+                            theme.accentSoft
+                        } else {
+                            theme.windowBg
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center,
                             modifier = Modifier
-                                .background(if (active) theme.accentSoft else theme.windowBg)
-                                .win98Bevel(!active, theme.borderLight, theme.borderDark, theme.borderDeep)
+                                .background(tabBg)
+                                .win98Bevel(!tabDown, theme.borderLight, theme.borderDark, theme.borderDeep)
                                 .pointerInput(win.id, active) {
                                     detectTapGestures(
+                                        onPress = {
+                                            tabPressed = true
+                                            tryAwaitRelease()
+                                            tabPressed = false
+                                        },
                                         onTap = {
                                             tabMenuWindowId = null
+                                            tabView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                             RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
                                             if (active) vm.minimizeWindow(win.id) else vm.focusWindow(win.id)
                                         },
                                         onLongPress = {
+                                            tabView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                             RetroSoundEngine.play(RetroSound.CLICK, vm.soundEnabled)
                                             startMenuOpen = false
                                             tabMenuWindowId = win.id
@@ -975,6 +1004,7 @@ fun DesktopScreen(vm: OSViewModel) {
                                     )
                                 }
                                 .padding(horizontal = 7.dp, vertical = 4.dp)
+                                .offset(x = if (tabPressed) 1.dp else 0.dp, y = if (tabPressed) 1.dp else 0.dp)
                         ) {
                             Text(
                                 text = win.title.take(14),
@@ -1058,11 +1088,28 @@ private fun StartRow(
     selected: Boolean = false,
     onClick: () -> Unit
 ) {
+    val view = LocalView.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    var clickFlash by remember { mutableStateOf(false) }
+    var clickSeq by remember { mutableIntStateOf(0) }
+    LaunchedEffect(clickSeq) {
+        if (clickSeq > 0) {
+            clickFlash = true
+            delay(110)
+            clickFlash = false
+        }
+    }
+    val highlighted = selected || pressed || clickFlash
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) theme.titleBarActive else Color.Transparent)
-            .clickable { onClick() }
+            .background(if (highlighted) theme.titleBarActive else Color.Transparent)
+            .clickable(interactionSource = interaction, indication = null) {
+                clickSeq++
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                onClick()
+            }
             .padding(horizontal = 6.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp)
@@ -1073,7 +1120,7 @@ private fun StartRow(
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             fontSize = 11.sp,
-            color = if (selected) Color.White else theme.textPrimary,
+            color = if (highlighted) Color.White else theme.textPrimary,
             maxLines = 1
         )
     }

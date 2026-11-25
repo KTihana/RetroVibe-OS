@@ -71,6 +71,16 @@ fun BrowserWindow(vm: OSViewModel, palette: RetroPalette) {
         }
     }
 
+    LaunchedEffect(vm.pendingBrowserUrl) {
+        val incoming = vm.pendingBrowserUrl
+        if (!incoming.isNullOrBlank()) {
+            vm.pendingBrowserUrl = null
+            dialDoneOnce = true
+            isDialing = false
+            navigate(incoming)
+        }
+    }
+
     LaunchedEffect(isDialing) {
         if (isDialing) {
             dialStep = "Dialing 555-0198 (56k Modem)..."
@@ -166,7 +176,7 @@ fun BrowserWindow(vm: OSViewModel, palette: RetroPalette) {
                         PixelIcon("ie", 40.dp)
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "RetroVibe Internet Explorer",
+                            text = "RetroVibe Internet Voyager",
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,

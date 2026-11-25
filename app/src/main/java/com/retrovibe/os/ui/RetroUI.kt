@@ -1,7 +1,9 @@
 package com.retrovibe.os.ui
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,9 +18,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +37,7 @@ import com.retrovibe.os.model.WindowState
 import com.retrovibe.os.store.OSViewModel
 import com.retrovibe.os.theme.RetroThemeColors
 import com.retrovibe.os.theme.RetroThemes
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 fun Modifier.win98Bevel(
@@ -114,21 +119,47 @@ fun RetroButton(
     onClick: () -> Unit,
     content: (@Composable RowScope.() -> Unit)? = null
 ) {
+    val view = LocalView.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val sunken = pressed || active
+    var clickFlash by remember { mutableStateOf(false) }
+    var clickSeq by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(clickSeq) {
+        if (clickSeq > 0) {
+            clickFlash = true
+            delay(130)
+            clickFlash = false
+        }
+    }
+
+    val isDown = pressed || clickFlash
+    val sunken = isDown || active
+    val baseBg = if (active) theme.accentSoft else theme.windowBg
+    val bgColor = if (isDown) {
+        theme.titleBarActive.copy(alpha = 0.28f).compositeOver(baseBg)
+    } else {
+        baseBg
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
         modifier = modifier
-            .background(if (active) theme.accentSoft else theme.windowBg)
+            .background(bgColor)
             .win98Bevel(!sunken, theme.borderLight, theme.borderDark, theme.borderDeep)
+            .then(
+                if (isDown) Modifier.border(1.dp, theme.borderDeep.copy(alpha = 0.65f))
+                else Modifier
+            )
             .clickable(enabled = enabled, interactionSource = interaction, indication = null) {
+                clickSeq++
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
                 onClick()
             }
             .padding(horizontal = 7.dp, vertical = 4.dp)
+            .offset(x = if (isDown) 1.5.dp else 0.dp, y = if (isDown) 1.5.dp else 0.dp)
     ) {
         if (content != null) {
             content()
@@ -295,16 +326,40 @@ fun RetroWindow(
 
 @Composable
 private fun WinTitleBtn(label: String, theme: RetroThemeColors, soundEnabled: Boolean, onClick: () -> Unit) {
+    val view = LocalView.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    var clickFlash by remember { mutableStateOf(false) }
+    var clickSeq by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(clickSeq) {
+        if (clickSeq > 0) {
+            clickFlash = true
+            delay(110)
+            clickFlash = false
+        }
+    }
+
+    val isDown = pressed || clickFlash
+    val bgColor = if (isDown) {
+        theme.titleBarActive.copy(alpha = 0.30f).compositeOver(theme.windowBg)
+    } else {
+        theme.windowBg
+    }
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(23.dp, 21.dp)
-            .background(theme.windowBg)
-            .win98Bevel(true, theme.borderLight, theme.borderDark, theme.borderDeep, 1.5.dp)
-            .clickable {
+            .background(bgColor)
+            .win98Bevel(!isDown, theme.borderLight, theme.borderDark, theme.borderDeep, 1.5.dp)
+            .clickable(interactionSource = interaction, indication = null) {
+                clickSeq++
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
                 onClick()
             }
+            .offset(x = if (isDown) 1.dp else 0.dp, y = if (isDown) 1.dp else 0.dp)
     ) {
         Text(
             text = label,

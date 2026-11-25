@@ -40,8 +40,12 @@ fun RunDialogWindow(vm: OSViewModel, palette: RetroPalette) {
             "mspaint" to "paint",
             "paint" to "paint",
             "explorer" to "explorer",
+            "voyager" to "browser",
             "iexplore" to "browser",
             "browser" to "browser",
+            "qr" to "qrscanner",
+            "qrscanner" to "qrscanner",
+            "scanner" to "qrscanner",
             "mail" to "mail",
             "heartsweeper" to "sweeper",
             "sweeper" to "sweeper",
@@ -54,6 +58,8 @@ fun RunDialogWindow(vm: OSViewModel, palette: RetroPalette) {
             "todo" to "habits",
             "music" to "music",
             "gallery" to "gallery",
+            "camera" to "camera",
+            "cam" to "camera",
             "recorder" to "recorder"
         )
         when {
