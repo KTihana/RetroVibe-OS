@@ -324,10 +324,11 @@ fun DesktopScreen(vm: OSViewModel) {
                 if (boundsH > stableBoundsH) stableBoundsH = boundsH
                 // Tight, symmetrical left & right margins (~6dp) with columns evenly distributed across screen
                 val sideMargin = 6f
+                val topMargin = 6f
                 val maxCols = ((boundsW - sideMargin * 2f) / 76f).toInt().coerceAtLeast(1)
                 val cellW = (boundsW - sideMargin * 2f) / maxCols
-                val cellH = 82f
-                val maxRows = ((stableBoundsH - 16f) / cellH).toInt().coerceAtLeast(1)
+                val maxRows = ((stableBoundsH - topMargin * 2f) / 74f).toInt().coerceAtLeast(1)
+                val cellH = (stableBoundsH - topMargin * 2f) / maxRows
                 val colPadX = ((cellW - 74f) / 2f).coerceAtLeast(0f)
 
                 // Compute zero-overlap snap-to-grid positions
@@ -355,7 +356,7 @@ fun DesktopScreen(vm: OSViewModel) {
                     val saved = vm.iconPositions[sc.id]
                     val (col, row) = if (saved != null) {
                         val c = ((saved.x - sideMargin) / cellW).roundToInt().coerceIn(0, maxCols - 1)
-                        val r = ((saved.y - 8f) / cellH).roundToInt().coerceIn(0, maxRows - 1)
+                        val r = ((saved.y - topMargin) / cellH).roundToInt().coerceIn(0, maxRows - 1)
                         if ((c to r) !in occupied) c to r else nearestFreeSlot(c, r)
                     } else {
                         val defC = idx / maxRows
@@ -363,7 +364,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         if ((defC to defR) !in occupied && defC < maxCols) defC to defR else nearestFreeSlot(defC, defR)
                     }
                     occupied.add(col to row)
-                    resolvedPositions[sc.id] = (sideMargin + col * cellW + colPadX) to (8f + row * cellH)
+                    resolvedPositions[sc.id] = (sideMargin + col * cellW + colPadX) to (topMargin + row * cellH)
                 }
 
                 val recyclePos = resolvedPositions["icon-recycle"]
@@ -426,9 +427,9 @@ fun DesktopScreen(vm: OSViewModel) {
                                             }
                                         }
                                         val snapC = ((dragX - sideMargin) / cellW).roundToInt().coerceIn(0, maxCols - 1)
-                                        val snapR = ((dragY - 8f) / cellH).roundToInt().coerceIn(0, maxRows - 1)
+                                        val snapR = ((dragY - topMargin) / cellH).roundToInt().coerceIn(0, maxRows - 1)
                                         val nx = sideMargin + snapC * cellW + colPadX
-                                        val ny = 8f + snapR * cellH
+                                        val ny = topMargin + snapR * cellH
                                         dragX = nx
                                         dragY = ny
                                         vm.setIconPos(sc.id, nx, ny)
@@ -440,7 +441,7 @@ fun DesktopScreen(vm: OSViewModel) {
                                 ) { change, dragAmount ->
                                     change.consume()
                                     dragX = (dragX + dragAmount.x / density.density).coerceIn(0f, boundsW - 74f)
-                                    dragY = (dragY + dragAmount.y / density.density).coerceIn(0f, boundsH - 76f)
+                                    dragY = (dragY + dragAmount.y / density.density).coerceIn(0f, boundsH - 70f)
                                 }
                             },
                         contentAlignment = Alignment.TopCenter
