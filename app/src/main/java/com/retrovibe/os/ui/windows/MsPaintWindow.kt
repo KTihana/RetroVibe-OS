@@ -11,12 +11,19 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -27,8 +34,10 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -115,7 +124,7 @@ private fun floodFillBitmap(bmp: Bitmap, startX: Int, startY: Int, replacementCo
 
 @Composable
 fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
-    val bitmap = remember(vm.editingArtworkId) {
+    var bitmap by remember(vm.editingArtworkId) {
         val existing = vm.editingArtworkId?.let { id -> vm.artworks.find { it.id == id } }
         val loaded = existing?.let {
             try {
@@ -125,12 +134,21 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                 null
             }
         }
-        loaded ?: Bitmap.createBitmap(320, 520, Bitmap.Config.ARGB_8888).apply {
-            android.graphics.Canvas(this).drawColor(android.graphics.Color.WHITE)
-        }
+        mutableStateOf(
+            loaded ?: Bitmap.createBitmap(360, 540, Bitmap.Config.ARGB_8888).apply {
+                android.graphics.Canvas(this).drawColor(android.graphics.Color.WHITE)
+            }
+        )
     }
     val bw = bitmap.width
     val bh = bitmap.height
+
+    var canvasBoxPx by remember { mutableStateOf(IntSize.Zero) }
+    var initializedFullCanvas by remember(vm.editingArtworkId) { mutableStateOf(vm.editingArtworkId != null) }
+    var hasDrawn by remember(vm.editingArtworkId) { mutableStateOf(vm.editingArtworkId != null) }
+    var showSizePanel by remember { mutableStateOf(false) }
+    var customW by remember { mutableStateOf(bw.toString()) }
+    var customH by remember { mutableStateOf(bh.toString()) }
 
     var redrawTick by remember { mutableStateOf(0) }
     var activeTool by remember { mutableStateOf("paint_pencil") }
@@ -139,13 +157,39 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
     var bgColor by remember { mutableStateOf(Color.White) }
     var brushSize by remember { mutableStateOf(5f) }
     var fillMode by remember { mutableStateOf(0) } // 0 outline, 1 outline + fill, 2 solid
-    var statusText by remember { mutableStateOf("Ready") }
+    var statusText by remember { mutableStateOf("Ready • Pinch with 2 fingers to zoom & pan") }
     val undoStack = remember { mutableStateListOf<Bitmap>() }
 
-    // Magnifier viewport (in bitmap pixels)
-    var zoom by remember { mutableStateOf(1) }
-    var viewX by remember { mutableStateOf(0f) }
-    var viewY by remember { mutableStateOf(0f) }
+    // Continuous zoom & pan viewport (zoom 1f = fit canvas cleanly, up to 8f; pan in screen px)
+    var zoom by remember { mutableStateOf(1f) }
+    var panX by remember { mutableStateOf(0f) }
+    var panY by remember { mutableStateOf(0f) }
+
+    fun computeFullCanvasSize(): Pair<Int, Int> {
+        if (canvasBoxPx.width <= 0 || canvasBoxPx.height <= 0) return 360 to 540
+        val aspect = canvasBoxPx.width.toFloat() / canvasBoxPx.height.toFloat()
+        return if (aspect >= 1f) {
+            val h = 420
+            (h * aspect).roundToInt().coerceIn(200, 960) to h
+        } else {
+            val w = 420
+            w to (w / aspect).roundToInt().coerceIn(200, 960)
+        }
+    }
+
+    // Automatically fit initial blank canvas to fill 100% of the available white area
+    LaunchedEffect(canvasBoxPx, initializedFullCanvas) {
+        if (!initializedFullCanvas && !hasDrawn && canvasBoxPx.width > 0 && canvasBoxPx.height > 0) {
+            val (tw, th) = computeFullCanvasSize()
+            bitmap = Bitmap.createBitmap(tw, th, Bitmap.Config.ARGB_8888).apply {
+                android.graphics.Canvas(this).drawColor(android.graphics.Color.WHITE)
+            }
+            customW = tw.toString()
+            customH = th.toString()
+            initializedFullCanvas = true
+            redrawTick++
+        }
+    }
 
     // Live previews
     var dragStart by remember { mutableStateOf<Offset?>(null) }
@@ -176,6 +220,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
     fun refresh() { redrawTick++ }
 
     fun pushUndo() {
+        hasDrawn = true
         if (undoStack.size >= 20) undoStack.removeAt(0)
         undoStack.add(bitmap.copy(Bitmap.Config.ARGB_8888, true))
     }
@@ -362,13 +407,75 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
         statusText = TOOL_NAMES[toolId] ?: toolId
     }
 
-    fun setZoom(level: Int, center: Offset) {
-        zoom = level
-        val vw = bw.toFloat() / level
-        val vh = bh.toFloat() / level
-        viewX = (center.x - vw / 2f).coerceIn(0f, bw - vw)
-        viewY = (center.y - vh / 2f).coerceIn(0f, bh - vh)
-        statusText = "Zoom ${level}x"
+    fun formatZoom(z: Float): String {
+        val rounded = z.roundToInt().toFloat()
+        return if (kotlin.math.abs(z - rounded) < 0.05f) "${rounded.toInt()}x"
+        else "${"%.1f".format(z)}x"
+    }
+
+    fun currentViewCenter(): Offset {
+        if (canvasBoxPx.width <= 0 || canvasBoxPx.height <= 0) {
+            return Offset(bitmap.width / 2f, bitmap.height / 2f)
+        }
+        val cw = canvasBoxPx.width.toFloat()
+        val ch = canvasBoxPx.height.toFloat()
+        val curBw = bitmap.width.toFloat()
+        val curBh = bitmap.height.toFloat()
+        val baseScale = minOf(cw / curBw, ch / curBh).coerceAtLeast(0.01f)
+        val scale = baseScale * zoom
+        val ox = (cw - curBw * scale) / 2f + panX
+        val oy = (ch - curBh * scale) / 2f + panY
+        return Offset(
+            ((cw / 2f - ox) / scale).coerceIn(0f, curBw),
+            ((ch / 2f - oy) / scale).coerceIn(0f, curBh)
+        )
+    }
+
+    fun setZoom(level: Float, center: Offset) {
+        val clampedZoom = level.coerceIn(1f, 8f)
+        zoom = clampedZoom
+        if (clampedZoom <= 1.01f || canvasBoxPx.width <= 0 || canvasBoxPx.height <= 0) {
+            panX = 0f
+            panY = 0f
+        } else {
+            val cw = canvasBoxPx.width.toFloat()
+            val ch = canvasBoxPx.height.toFloat()
+            val curBw = bitmap.width.toFloat()
+            val curBh = bitmap.height.toFloat()
+            val baseScale = minOf(cw / curBw, ch / curBh).coerceAtLeast(0.01f)
+            val newScale = baseScale * clampedZoom
+            val drawW = curBw * newScale
+            val drawH = curBh * newScale
+            val rawPanX = cw / 2f - center.x * newScale - (cw - drawW) / 2f
+            val rawPanY = ch / 2f - center.y * newScale - (ch - drawH) / 2f
+            val maxPanX = ((drawW - cw) / 2f).coerceAtLeast(0f)
+            val maxPanY = ((drawH - ch) / 2f).coerceAtLeast(0f)
+            panX = rawPanX.coerceIn(-maxPanX, maxPanX)
+            panY = rawPanY.coerceIn(-maxPanY, maxPanY)
+        }
+        statusText = "Zoom ${formatZoom(clampedZoom)}"
+    }
+
+    fun resizeCanvas(newW: Int, newH: Int, clearCanvas: Boolean = false) {
+        val w = newW.coerceIn(64, 1024)
+        val h = newH.coerceIn(64, 1024)
+        finishPending()
+        pushUndo()
+        val next = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(next)
+        c.drawColor(if (clearCanvas) android.graphics.Color.WHITE else bgColor.toArgb())
+        if (!clearCanvas) {
+            c.drawBitmap(bitmap, 0f, 0f, null)
+        }
+        bitmap = next
+        customW = w.toString()
+        customH = h.toString()
+        initializedFullCanvas = true
+        zoom = 1f
+        panX = 0f
+        panY = 0f
+        statusText = "Canvas ${w}×${h}"
+        refresh()
     }
 
     fun applyUndo() {
@@ -376,7 +483,9 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
         polyPts.clear(); curveA = null; curveB = null; curveCtrl = null
         if (undoStack.isEmpty()) { refresh(); return }
         val prev = undoStack.removeAt(undoStack.lastIndex)
-        android.graphics.Canvas(bitmap).drawBitmap(prev, 0f, 0f, null)
+        bitmap = prev
+        customW = prev.width.toString()
+        customH = prev.height.toString()
         refresh()
     }
 
@@ -415,7 +524,15 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                 statusText = "Picked color"
                 activeTool = previousTool
             }
-            "paint_zoom" -> if (zoom >= 4) setZoom(1, p) else setZoom(zoom * 2, p)
+            "paint_zoom" -> {
+                val next = when {
+                    zoom < 1.8f -> 2f
+                    zoom < 3.8f -> 4f
+                    zoom < 7.5f -> 8f
+                    else -> 1f
+                }
+                setZoom(next, p)
+            }
             "paint_text" -> { commitText(); textAt = p; statusText = "Type your text, then OK" }
             "paint_pencil" -> {
                 pushUndo(); android.graphics.Canvas(bitmap).drawRect(px.toFloat(), py.toFloat(), px + 1f, py + 1f, fillPaint(fgColor)); refresh()
@@ -525,6 +642,7 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFFC0C0C0))
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 4.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -534,13 +652,25 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                 pushUndo()
                 android.graphics.Canvas(bitmap).drawColor(android.graphics.Color.WHITE)
                 vm.editingArtworkId = null
+                zoom = 1f
+                panX = 0f
+                panY = 0f
                 refresh()
             })
             RetroButton(label = "Save", palette = palette, onClick = { saveDrawing() })
             RetroButton(label = "Undo", palette = palette, onClick = { applyUndo() })
-            RetroButton(label = "${zoom}x", palette = palette, onClick = {
-                val next = when (zoom) { 1 -> 2; 2 -> 4; else -> 1 }
-                setZoom(next, Offset(viewX + bw / (2f * zoom), viewY + bh / (2f * zoom)))
+            RetroButton(label = "Size", palette = palette, onClick = {
+                customW = bitmap.width.toString()
+                customH = bitmap.height.toString()
+                showSizePanel = !showSizePanel
+            })
+            RetroButton(label = formatZoom(zoom), palette = palette, onClick = {
+                val next = when {
+                    zoom < 1.8f -> 2f
+                    zoom < 3.8f -> 4f
+                    else -> 1f
+                }
+                setZoom(next, currentViewCenter())
             })
             if (selBmp != null) {
                 RetroButton(label = "Del", palette = palette, onClick = { deleteSelection() })
@@ -551,13 +681,93 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
             }
         }
         Text(
-            statusText,
+            "$statusText  (${bw}×${bh})",
             fontFamily = FontFamily.Monospace,
             fontSize = 9.sp,
             color = Color.Black,
             maxLines = 1,
             modifier = Modifier.padding(horizontal = 6.dp)
         )
+
+        // Canvas Size Picker Panel (Full / Presets / Custom WxH)
+        if (showSizePanel) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                    .win98Bevel(sunken = true, bg = Color(0xFFD4D0C8))
+                    .padding(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RetroButton(label = "Full", palette = palette, onClick = {
+                        val (fw, fh) = computeFullCanvasSize()
+                        resizeCanvas(fw, fh)
+                        showSizePanel = false
+                    })
+                    RetroButton(label = "Square", palette = palette, onClick = {
+                        resizeCanvas(400, 400)
+                        showSizePanel = false
+                    })
+                    RetroButton(label = "Portrait", palette = palette, onClick = {
+                        resizeCanvas(360, 540)
+                        showSizePanel = false
+                    })
+                    RetroButton(label = "Wide", palette = palette, onClick = {
+                        resizeCanvas(540, 360)
+                        showSizePanel = false
+                    })
+                    RetroButton(label = "Pixel", palette = palette, onClick = {
+                        resizeCanvas(128, 128)
+                        showSizePanel = false
+                    })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("W:", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color.Black)
+                    BasicTextField(
+                        value = customW,
+                        onValueChange = { s -> customW = s.filter { it.isDigit() }.take(4) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Black),
+                        modifier = Modifier
+                            .width(46.dp)
+                            .win98Bevel(sunken = true, bg = Color.White)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                    Text("H:", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color.Black)
+                    BasicTextField(
+                        value = customH,
+                        onValueChange = { s -> customH = s.filter { it.isDigit() }.take(4) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Black),
+                        modifier = Modifier
+                            .width(46.dp)
+                            .win98Bevel(sunken = true, bg = Color.White)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                    RetroButton(label = "Apply", palette = palette, onClick = {
+                        val w = customW.toIntOrNull() ?: bw
+                        val h = customH.toIntOrNull() ?: bh
+                        resizeCanvas(w, h)
+                        showSizePanel = false
+                    })
+                    Spacer(Modifier.weight(1f))
+                    RetroButton(label = "X", palette = palette, onClick = { showSizePanel = false })
+                }
+            }
+        }
 
         // Text tool input bar
         if (textAt != null) {
@@ -730,17 +940,17 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                             }
                         }
                         activeTool == "paint_zoom" -> {
-                            listOf(1, 2, 4).forEach { lvl ->
-                                val active = zoom == lvl
+                            listOf(1f, 2f, 4f, 8f).forEach { lvl ->
+                                val active = kotlin.math.abs(zoom - lvl) < 0.2f
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(16.dp)
                                         .background(if (active) Color(0xFF000080) else Color.Transparent)
-                                        .clickable { setZoom(lvl, Offset(viewX + bw / (2f * zoom), viewY + bh / (2f * zoom))) },
+                                        .clickable { setZoom(lvl, currentViewCenter()) },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("${lvl}x", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = if (active) Color.White else Color.Black)
+                                    Text("${lvl.toInt()}x", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = if (active) Color.White else Color.Black)
                                 }
                             }
                         }
@@ -756,6 +966,8 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                     .fillMaxHeight()
                     .win98Bevel(sunken = true, bg = Color(0xFF808080))
                     .padding(3.dp)
+                    .clipToBounds()
+                    .onSizeChanged { canvasBoxPx = it }
             ) {
                 Canvas(
                     modifier = Modifier
@@ -763,61 +975,167 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                         .background(Color(0xFF808080))
                         .pointerInput(bitmap) {
                             fun toBmp(o: Offset): Offset {
-                                val vw = bw.toFloat() / zoom
-                                val vh = bh.toFloat() / zoom
-                                val scale = minOf(size.width / vw, size.height / vh).coerceAtLeast(0.01f)
-                                val ox = (size.width - vw * scale) / 2f
-                                val oy = (size.height - vh * scale) / 2f
+                                val cw = size.width.toFloat()
+                                val ch = size.height.toFloat()
+                                val curBw = bitmap.width.toFloat()
+                                val curBh = bitmap.height.toFloat()
+                                val baseScale = minOf(cw / curBw, ch / curBh).coerceAtLeast(0.01f)
+                                val scale = baseScale * zoom
+                                val drawW = curBw * scale
+                                val drawH = curBh * scale
+                                val maxPanX = ((drawW - cw) / 2f).coerceAtLeast(0f)
+                                val maxPanY = ((drawH - ch) / 2f).coerceAtLeast(0f)
+                                val ox = (cw - drawW) / 2f + panX.coerceIn(-maxPanX, maxPanX)
+                                val oy = (ch - drawH) / 2f + panY.coerceIn(-maxPanY, maxPanY)
                                 return Offset(
-                                    (viewX + (o.x - ox) / scale).coerceIn(0f, bw - 1f),
-                                    (viewY + (o.y - oy) / scale).coerceIn(0f, bh - 1f)
+                                    ((o.x - ox) / scale).coerceIn(0f, curBw - 1f),
+                                    ((o.y - oy) / scale).coerceIn(0f, curBh - 1f)
                                 )
                             }
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
                                 down.consume()
-                                val start = toBmp(down.position)
-                                var last = start
+                                val startScreen = down.position
+                                var lastScreen = startScreen
+                                val startBmp = toBmp(startScreen)
+                                var lastBmp = startBmp
                                 var dragging = false
+                                var multiTouch = false
+                                var panningWithZoomTool = false
+                                var pushedUndoForStroke = false
                                 val slop = viewConfiguration.touchSlop
+
                                 while (true) {
                                     val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                    if (!change.pressed) { change.consume(); break }
-                                    if (!dragging && (change.position - down.position).getDistance() > slop) {
-                                        dragging = true
-                                        onDragStart(start)
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.isEmpty()) {
+                                        event.changes.forEach { it.consume() }
+                                        break
                                     }
-                                    if (dragging) {
-                                        val p = toBmp(change.position)
-                                        onDragMove(last, p)
-                                        last = p
+
+                                    if (pressed.size >= 2) {
+                                        if (!multiTouch) {
+                                            multiTouch = true
+                                            // Cancel any accidental single-finger stroke that just began as finger 2 landed
+                                            if (dragging && !panningWithZoomTool) {
+                                                if (pushedUndoForStroke && undoStack.isNotEmpty()) {
+                                                    val prev = undoStack.removeAt(undoStack.lastIndex)
+                                                    if (prev.width == bitmap.width && prev.height == bitmap.height) {
+                                                        android.graphics.Canvas(bitmap).drawBitmap(prev, 0f, 0f, null)
+                                                    }
+                                                    pushedUndoForStroke = false
+                                                }
+                                                dragging = false
+                                                movingSel = false
+                                                freePath.clear()
+                                                dragStart = null
+                                                dragCur = null
+                                                refresh()
+                                            }
+                                        }
+                                        val zoomChange = event.calculateZoom()
+                                        val panChange = event.calculatePan()
+                                        val centroid = event.calculateCentroid(useCurrent = true)
+                                        if (zoomChange != 1f || panChange != Offset.Zero) {
+                                            val cw = size.width.toFloat()
+                                            val ch = size.height.toFloat()
+                                            val curBw = bitmap.width.toFloat()
+                                            val curBh = bitmap.height.toFloat()
+                                            val baseScale = minOf(cw / curBw, ch / curBh).coerceAtLeast(0.01f)
+                                            val oldScale = baseScale * zoom
+                                            val oldDrawW = curBw * oldScale
+                                            val oldDrawH = curBh * oldScale
+                                            val oldMaxPanX = ((oldDrawW - cw) / 2f).coerceAtLeast(0f)
+                                            val oldMaxPanY = ((oldDrawH - ch) / 2f).coerceAtLeast(0f)
+                                            val oldOx = (cw - oldDrawW) / 2f + panX.coerceIn(-oldMaxPanX, oldMaxPanX)
+                                            val oldOy = (ch - oldDrawH) / 2f + panY.coerceIn(-oldMaxPanY, oldMaxPanY)
+
+                                            val prevCentroid = centroid - panChange
+                                            val bmpPtX = (prevCentroid.x - oldOx) / oldScale
+                                            val bmpPtY = (prevCentroid.y - oldOy) / oldScale
+
+                                            val newZoom = (zoom * zoomChange).coerceIn(1f, 8f)
+                                            val newScale = baseScale * newZoom
+                                            val newDrawW = curBw * newScale
+                                            val newDrawH = curBh * newScale
+
+                                            val rawPanX = centroid.x - bmpPtX * newScale - (cw - newDrawW) / 2f
+                                            val rawPanY = centroid.y - bmpPtY * newScale - (ch - newDrawH) / 2f
+                                            val maxPanX = ((newDrawW - cw) / 2f).coerceAtLeast(0f)
+                                            val maxPanY = ((newDrawH - ch) / 2f).coerceAtLeast(0f)
+
+                                            zoom = newZoom
+                                            panX = rawPanX.coerceIn(-maxPanX, maxPanX)
+                                            panY = rawPanY.coerceIn(-maxPanY, maxPanY)
+                                            statusText = "Zoom ${formatZoom(newZoom)}"
+                                        }
+                                        event.changes.forEach { it.consume() }
+                                    } else if (!multiTouch) {
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) {
+                                            change.consume()
+                                            break
+                                        }
+                                        if (!dragging && (change.position - startScreen).getDistance() > slop) {
+                                            dragging = true
+                                            if (activeTool == "paint_zoom" && zoom > 1.01f) {
+                                                panningWithZoomTool = true
+                                            } else {
+                                                pushedUndoForStroke = activeTool in setOf("paint_pencil", "paint_brush", "paint_eraser", "paint_airbrush")
+                                                onDragStart(startBmp)
+                                            }
+                                        }
+                                        if (dragging) {
+                                            if (panningWithZoomTool) {
+                                                val delta = change.position - lastScreen
+                                                val cw = size.width.toFloat()
+                                                val ch = size.height.toFloat()
+                                                val curBw = bitmap.width.toFloat()
+                                                val curBh = bitmap.height.toFloat()
+                                                val scale = minOf(cw / curBw, ch / curBh).coerceAtLeast(0.01f) * zoom
+                                                val maxPanX = ((curBw * scale - cw) / 2f).coerceAtLeast(0f)
+                                                val maxPanY = ((curBh * scale - ch) / 2f).coerceAtLeast(0f)
+                                                panX = (panX + delta.x).coerceIn(-maxPanX, maxPanX)
+                                                panY = (panY + delta.y).coerceIn(-maxPanY, maxPanY)
+                                            } else {
+                                                val p = toBmp(change.position)
+                                                onDragMove(lastBmp, p)
+                                                lastBmp = p
+                                            }
+                                            lastScreen = change.position
+                                        }
+                                        change.consume()
+                                    } else {
+                                        // One finger remains briefly after 2-finger gesture: ignore until all lifted
+                                        event.changes.forEach { it.consume() }
                                     }
-                                    change.consume()
                                 }
-                                if (dragging) onDragEnd(start, last) else onTap(start)
+                                if (!multiTouch && !panningWithZoomTool) {
+                                    if (dragging) onDragEnd(startBmp, lastBmp) else onTap(startBmp)
+                                }
                             }
                         }
                 ) {
                     @Suppress("UNUSED_VARIABLE") val tick = redrawTick
-                    val vw = bw.toFloat() / zoom
-                    val vh = bh.toFloat() / zoom
+                    val curBw = bitmap.width.toFloat()
+                    val curBh = bitmap.height.toFloat()
                     // Uniform 1:1 square-pixel scale so drawings & letters NEVER squish or stretch!
-                    val scale = minOf(size.width / vw, size.height / vh).coerceAtLeast(0.01f)
-                    val drawW = vw * scale
-                    val drawH = vh * scale
-                    val ox = (size.width - drawW) / 2f
-                    val oy = (size.height - drawH) / 2f
+                    val baseScale = minOf(size.width / curBw, size.height / curBh).coerceAtLeast(0.01f)
+                    val scale = baseScale * zoom
+                    val drawW = curBw * scale
+                    val drawH = curBh * scale
+                    val maxPanX = ((drawW - size.width) / 2f).coerceAtLeast(0f)
+                    val maxPanY = ((drawH - size.height) / 2f).coerceAtLeast(0f)
+                    val ox = (size.width - drawW) / 2f + panX.coerceIn(-maxPanX, maxPanX)
+                    val oy = (size.height - drawH) / 2f + panY.coerceIn(-maxPanY, maxPanY)
                     val sx = scale
                     val sy = scale
-                    fun scr(b: Offset) = Offset(ox + (b.x - viewX) * scale, oy + (b.y - viewY) * scale)
+                    fun scr(b: Offset) = Offset(ox + b.x * scale, oy + b.y * scale)
 
                     // White paper backing + subtle Win98 drop shadow inside grey workspace
                     drawRect(Color(0xFF404040), Offset(ox + 2f, oy + 2f), Size(drawW, drawH))
                     drawImage(
                         image = bitmap.asImageBitmap(),
-                        srcOffset = IntOffset(viewX.toInt(), viewY.toInt()),
-                        srcSize = IntSize(vw.toInt().coerceAtLeast(1), vh.toInt().coerceAtLeast(1)),
                         dstOffset = IntOffset(ox.roundToInt(), oy.roundToInt()),
                         dstSize = IntSize(drawW.roundToInt().coerceAtLeast(1), drawH.roundToInt().coerceAtLeast(1)),
                         filterQuality = FilterQuality.None
@@ -965,7 +1283,10 @@ fun MsPaintWindow(vm: OSViewModel, palette: RetroPalette) {
                 )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 for (row in 0 until 2) {
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         for (col in 0 until 14) {
