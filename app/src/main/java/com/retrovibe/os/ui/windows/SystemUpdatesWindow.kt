@@ -1,7 +1,9 @@
 package com.retrovibe.os.ui.windows
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import com.retrovibe.os.ApkInstallReceiver
 import com.retrovibe.os.BuildConfig
 import com.retrovibe.os.audio.RetroSound
 import com.retrovibe.os.audio.RetroSoundEngine
@@ -106,24 +109,54 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 context.startActivity(permIntent)
-            } catch (e: Throwable) {
+            } catch (_: Throwable) {
                 statusText = "Please enable 'Install unknown apps' in Android Settings."
             }
             return
         }
         awaitingInstallPerm = false
-        try {
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
-            val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        statusText = "Preparing installer..."
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val installer = context.packageManager.packageInstaller
+                    val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+                    params.setAppPackageName(context.packageName)
+                    val sessionId = installer.createSession(params)
+                    installer.openSession(sessionId).use { session ->
+                        apkFile.inputStream().use { input ->
+                            session.openWrite("RetroVibe-OS.apk", 0, apkFile.length()).use { output ->
+                                input.copyTo(output, 16 * 1024)
+                                session.fsync(output)
+                            }
+                        }
+                        val cbIntent = Intent(context, ApkInstallReceiver::class.java)
+                        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                        } else {
+                            PendingIntent.FLAG_UPDATE_CURRENT
+                        }
+                        val pending = PendingIntent.getBroadcast(context, sessionId, cbIntent, flags)
+                        session.commit(pending.intentSender)
+                    }
+                }
+                statusText = "Installer opened! Tap Update to finish."
+            } catch (e: Throwable) {
+                // Fallback to FileProvider ACTION_VIEW if PackageInstaller session fails
+                try {
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
+                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/vnd.android.package-archive")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(installIntent)
+                    statusText = "Installer opened! Tap Update to finish."
+                } catch (e2: Throwable) {
+                    statusText = "Install error: ${e2.message ?: e.message}"
+                    RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
+                }
             }
-            context.startActivity(installIntent)
-            statusText = "Installer opened! Tap Update to finish."
-        } catch (e: Throwable) {
-            statusText = "Could not open installer: ${e.message}"
-            RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
         }
     }
 
@@ -208,37 +241,66 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
         statusText = "Checking for updates..."
         scope.launch {
             try {
-                val res = withContext(Dispatchers.IO) {
-                    val conn = URL("https://api.github.com/repos/$repo/releases/latest").openConnection() as HttpURLConnection
-                    conn.setRequestProperty("Accept", "application/vnd.github+json")
-                    conn.setRequestProperty("User-Agent", "RetroVibe-OS-Android")
-                    conn.connectTimeout = 8000
-                    conn.readTimeout = 8000
-                    if (conn.responseCode == 404) throw IllegalStateException("No published releases yet.")
-                    if (conn.responseCode !in 200..299) throw IllegalStateException("HTTP ${conn.responseCode}")
-                    JSONObject(conn.inputStream.bufferedReader().readText())
-                }
-                val tag = res.optString("tag_name").removePrefix("v")
-                val assets = res.optJSONArray("assets")
-                var apkUrl: String? = null
-                if (assets != null) {
-                    for (i in 0 until assets.length()) {
-                        val a = assets.getJSONObject(i)
-                        if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
-                            apkUrl = a.optString("browser_download_url")
-                            break
+                val (tag, apkUrl, notes) = withContext(Dispatchers.IO) {
+                    // 1) Primary zero-rate-limit check via GitHub /releases/latest redirect
+                    var foundTag = ""
+                    var foundApk: String? = null
+                    var foundNotes: String? = null
+                    try {
+                        val redirectConn = URL("https://github.com/$repo/releases/latest").openConnection() as HttpURLConnection
+                        redirectConn.instanceFollowRedirects = false
+                        redirectConn.setRequestProperty("User-Agent", "RetroVibe-OS-Android")
+                        redirectConn.connectTimeout = 8000
+                        redirectConn.readTimeout = 8000
+                        val loc = redirectConn.getHeaderField("Location")
+                        redirectConn.disconnect()
+                        if (loc != null && loc.contains("/releases/tag/")) {
+                            val rawTag = loc.substringAfter("/releases/tag/").substringBefore("?").trim()
+                            if (rawTag.isNotEmpty()) {
+                                foundTag = rawTag.removePrefix("v")
+                                foundApk = "https://github.com/$repo/releases/download/$rawTag/RetroVibe-OS.apk"
+                            }
                         }
-                    }
+                    } catch (_: Throwable) {}
+
+                    // 2) Enrich with GitHub Releases API (or fallback if redirect didn't resolve)
+                    try {
+                        val conn = URL("https://api.github.com/repos/$repo/releases/latest").openConnection() as HttpURLConnection
+                        conn.setRequestProperty("Accept", "application/vnd.github+json")
+                        conn.setRequestProperty("User-Agent", "RetroVibe-OS-Android")
+                        conn.connectTimeout = 7000
+                        conn.readTimeout = 7000
+                        if (conn.responseCode in 200..299) {
+                            val res = JSONObject(conn.inputStream.bufferedReader().readText())
+                            val apiTag = res.optString("tag_name").removePrefix("v")
+                            if (apiTag.isNotBlank()) foundTag = apiTag
+                            foundNotes = res.optString("body").take(320)
+                            val assets = res.optJSONArray("assets")
+                            if (assets != null) {
+                                for (i in 0 until assets.length()) {
+                                    val a = assets.getJSONObject(i)
+                                    if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
+                                        foundApk = a.optString("browser_download_url")
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                        conn.disconnect()
+                    } catch (_: Throwable) {}
+
+                    if (foundTag.isBlank()) throw IllegalStateException("Could not reach GitHub Releases.")
+                    Triple(foundTag, foundApk, foundNotes)
                 }
                 latestVersion = tag
                 apkDownloadUrl = apkUrl
-                releaseNotes = res.optString("body").take(320)
+                releaseNotes = notes
                 val newer = isNewerVersion(tag, installedVersion)
                 updateAvailable = newer
                 checking = false
 
                 if (newer && apkUrl != null && autoDownload) {
-                    statusText = "Found v$tag! Starting download..."
+                    statusText = "Found v$tag! Downloading..."
                     downloadAndInstallUpdate(apkUrl)
                 } else if (newer) {
                     statusText = "Update available: v$tag (installed: v$installedVersion)"
