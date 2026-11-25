@@ -390,7 +390,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
         RetroSoundEngine.play(RetroSound.TRASH, soundEnabled)
         val target = todos.find { it.id == id } ?: return
         todos = todos.filterNot { it.id == id }
-        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "todo", target.title, gson.toJson(target))) + trash
+        trash = listOf(TrashItem("trash-${System.currentTimeMillis()}", "todo", target.name, gson.toJson(target))) + trash
         persist()
     }
 
