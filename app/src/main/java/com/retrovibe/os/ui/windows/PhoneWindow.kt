@@ -1,7 +1,13 @@
 package com.retrovibe.os.ui.windows
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -13,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -22,10 +27,46 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.retrovibe.os.store.OSViewModel
 import com.retrovibe.os.theme.RetroPalette
 import com.retrovibe.os.ui.BevelBox
 import com.retrovibe.os.ui.RetroButton
+
+private data class PhoneBookEntry(
+    val name: String,
+    val phone: String
+)
+
+private fun loadDeviceContacts(context: Context): List<PhoneBookEntry> {
+    val result = mutableListOf<PhoneBookEntry>()
+    val seen = mutableSetOf<String>()
+    try {
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER
+        )
+        context.contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            projection,
+            null,
+            null,
+            "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
+        )?.use { cursor ->
+            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            while (cursor.moveToNext()) {
+                val name = if (nameIdx >= 0) cursor.getString(nameIdx)?.trim().orEmpty() else ""
+                val num = if (numIdx >= 0) cursor.getString(numIdx)?.trim().orEmpty() else ""
+                val key = "${name.lowercase()}|${num.filter { it.isDigit() || it == '+' }}"
+                if (name.isNotEmpty() && num.isNotEmpty() && seen.add(key)) {
+                    result.add(PhoneBookEntry(name, num))
+                }
+            }
+        }
+    } catch (_: Throwable) {}
+    return result
+}
 
 @Composable
 fun PhoneWindow(vm: OSViewModel, palette: RetroPalette) {
@@ -37,6 +78,33 @@ fun PhoneWindow(vm: OSViewModel, palette: RetroPalette) {
     var newPhone by remember { mutableStateOf("") }
     var newNote by remember { mutableStateOf("") }
     var showAddForm by remember { mutableStateOf(false) }
+
+    // Phone Contact Import state
+    var showPhonePicker by remember { mutableStateOf(false) }
+    var deviceContacts by remember { mutableStateOf<List<PhoneBookEntry>>(emptyList()) }
+    var pickerSearch by remember { mutableStateOf("") }
+
+    val contactsPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            deviceContacts = loadDeviceContacts(context)
+            showPhonePicker = true
+            showAddForm = false
+        }
+    }
+
+    fun openPhoneImport() {
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            deviceContacts = loadDeviceContacts(context)
+            showPhonePicker = !showPhonePicker
+            showAddForm = false
+        } else {
+            contactsPermLauncher.launch(Manifest.permission.READ_CONTACTS)
+        }
+    }
 
     fun placeCall(num: String) {
         val clean = num.trim()
@@ -200,9 +268,104 @@ fun PhoneWindow(vm: OSViewModel, palette: RetroPalette) {
                     onClick = {
                         newPhone = dialNumber
                         showAddForm = true
+                        showPhonePicker = false
                         activeTab = 1
                     }
                 )
+            }
+        } else if (showPhonePicker) {
+            // Import from Phone Contacts View
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RetroButton("<- Back", palette, onClick = { showPhonePicker = false })
+                BasicTextField(
+                    value = pickerSearch,
+                    onValueChange = { pickerSearch = it },
+                    singleLine = true,
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = palette.textPrimary),
+                    decorationBox = { inner ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(palette.windowSurface)
+                                .border(1.dp, palette.borderDark)
+                                .padding(5.dp)
+                        ) {
+                            if (pickerSearch.isEmpty()) {
+                                Text("Filter phone contacts...", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = palette.textSecondary)
+                            }
+                            inner()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            val existingNumbers = remember(vm.contacts) {
+                vm.contacts.map { it.phone.filter { c -> c.isDigit() || c == '+' } }.toSet()
+            }
+            val filteredPhone = remember(deviceContacts, pickerSearch) {
+                val q = pickerSearch.trim()
+                if (q.isEmpty()) deviceContacts
+                else deviceContacts.filter {
+                    it.name.contains(q, ignoreCase = true) || it.phone.contains(q, ignoreCase = true)
+                }
+            }
+
+            BevelBox(theme = palette, raised = false, modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (filteredPhone.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No phone contacts found.",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            color = palette.textSecondary
+                        )
+                    }
+                } else {
+                    LazyColumn(contentPadding = PaddingValues(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        items(filteredPhone, key = { "${it.name}|${it.phone}" }) { entry ->
+                            val cleanNum = entry.phone.filter { c -> c.isDigit() || c == '+' }
+                            val alreadyAdded = cleanNum in existingNumbers
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        entry.name,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = palette.textPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        entry.phone,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 9.sp,
+                                        color = palette.textSecondary,
+                                        maxLines = 1
+                                    )
+                                }
+                                RetroButton(
+                                    label = if (alreadyAdded) "Added" else "+ Add",
+                                    theme = palette,
+                                    soundEnabled = vm.soundEnabled,
+                                    active = !alreadyAdded,
+                                    enabled = !alreadyAdded,
+                                    onClick = { vm.addContact(entry.name, entry.phone) }
+                                )
+                            }
+                            HorizontalDivider(color = palette.borderDark, thickness = 1.dp)
+                        }
+                    }
+                }
             }
         } else {
             // Address Book Toolbar
@@ -225,7 +388,7 @@ fun PhoneWindow(vm: OSViewModel, palette: RetroPalette) {
                                 .padding(5.dp)
                         ) {
                             if (searchQuery.isEmpty()) {
-                                Text("Search contacts...", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = palette.textSecondary)
+                                Text("Search...", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = palette.textSecondary)
                             }
                             inner()
                         }
@@ -233,7 +396,13 @@ fun PhoneWindow(vm: OSViewModel, palette: RetroPalette) {
                     modifier = Modifier.weight(1f)
                 )
                 RetroButton(
-                    label = if (showAddForm) "Close" else "+ Add",
+                    label = "Import",
+                    theme = palette,
+                    soundEnabled = vm.soundEnabled,
+                    onClick = { openPhoneImport() }
+                )
+                RetroButton(
+                    label = if (showAddForm) "Close" else "+ New",
                     theme = palette,
                     soundEnabled = vm.soundEnabled,
                     active = showAddForm,
@@ -316,7 +485,7 @@ fun PhoneWindow(vm: OSViewModel, palette: RetroPalette) {
                 if (filtered.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            if (vm.contacts.isEmpty()) "Address Book is empty.\nTap + Add to save favorite contacts!" else "No matches.",
+                            if (vm.contacts.isEmpty()) "Address Book is empty.\nTap Import or + New above!" else "No matches.",
                             fontFamily = FontFamily.Monospace,
                             fontSize = 10.sp,
                             color = palette.textSecondary,

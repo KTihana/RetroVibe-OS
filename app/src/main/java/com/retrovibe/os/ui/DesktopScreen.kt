@@ -1,7 +1,9 @@
 package com.retrovibe.os.ui
 
 import android.app.Activity
+import android.content.Intent
 import android.view.HapticFeedbackConstants
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -215,14 +217,29 @@ fun DesktopScreen(vm: OSViewModel) {
     val pendingTodos = vm.todos.count { todayIso() !in it.completedDates }
     val pendingReminders = vm.reminders.count { !it.completed }
 
+    // Intercept Back so pressing/swiping Back closes menus/windows cleanly and never exits when set as Home Launcher
+    BackHandler(enabled = true) {
+        when {
+            vm.screensaverActive -> vm.screensaverActive = false
+            startMenuOpen -> { startMenuOpen = false; activeSubmenu = null }
+            contextMenuIconId != null -> contextMenuIconId = null
+            tabMenuWindowId != null -> tabMenuWindowId = null
+            showDesktopMenu -> showDesktopMenu = false
+            vm.activeWindowId != null -> vm.closeWindow(vm.activeWindowId!!)
+            else -> {
+                val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                val defaultHomePkg = context.packageManager.resolveActivity(homeIntent, 0)?.activityInfo?.packageName
+                if (defaultHomePkg != context.packageName) {
+                    (context as? Activity)?.moveTaskToBack(true)
+                }
+            }
+        }
+    }
+
     val baseShortcuts = listOf(
         DesktopShortcut("icon-explorer", "My Computer", "computer", "explorer"),
         DesktopShortcut("icon-gallery", "My Pictures", "gallery", "gallery"),
         DesktopShortcut("icon-camera", "Camera", "camera", "camera"),
-        DesktopShortcut("icon-phone", "Phone", "phone", "phone"),
-        DesktopShortcut("icon-clock", "Clock", "clock", "clock"),
-        DesktopShortcut("icon-reader", "E-Reader", "book", "reader"),
-        DesktopShortcut("icon-control", "Control Panel", "control", "control"),
         DesktopShortcut("icon-music", "Music", "music", "music"),
         DesktopShortcut("icon-calendar", "Calendar", "calendar", "calendar"),
         DesktopShortcut("icon-reminders", "Reminders", "reminder", "reminders", badgeCount = pendingReminders),
@@ -506,7 +523,6 @@ fun DesktopScreen(vm: OSViewModel) {
                         win.id == "control" -> "control"
                         win.id == "weather" -> "weather"
                         win.id == "reader" -> "book"
-                        win.id == "phoneapps" -> "phoneapps"
                         else -> "note"
                     }
                     RetroWindow(
@@ -548,7 +564,6 @@ fun DesktopScreen(vm: OSViewModel) {
                             win.id == "control" -> ControlPanelWindow(vm, theme)
                             win.id == "weather" -> WeatherWindow(vm, theme)
                             win.id == "reader" -> BookReaderWindow(vm, theme)
-                            win.id == "phoneapps" -> PhoneAppsWindow(vm, theme)
                         }
                     }
                     }
@@ -690,10 +705,9 @@ fun DesktopScreen(vm: OSViewModel) {
                         StartMenuEntry("Music Player", "music", "icon-music") { vm.openWindow("music") },
                         StartMenuEntry("Sound Recorder", "recorder", "icon-recorder") { vm.openWindow("recorder") },
                         StartMenuEntry("Camera", "camera", "icon-camera") { vm.openWindow("camera") },
-                        StartMenuEntry("Phone", "phone", "icon-phone") { vm.openWindow("phone") },
-                        StartMenuEntry("Clock & Timer", "clock", "icon-clock") { vm.openWindow("clock") },
-                        StartMenuEntry("E-Reader", "book", "icon-reader") { vm.openWindow("reader") },
-                        StartMenuEntry("Phone Apps", "phoneapps") { vm.openWindow("phoneapps") },
+                        StartMenuEntry("Phone", "phone") { vm.openWindow("phone") },
+                        StartMenuEntry("Clock & Timer", "clock") { vm.openWindow("clock") },
+                        StartMenuEntry("E-Reader", "book") { vm.openWindow("reader") },
                         StartMenuEntry("Calendar", "calendar", "icon-calendar") { vm.openWindow("calendar") },
                         StartMenuEntry("Reminders", "reminder", "icon-reminders") { vm.openWindow("reminders") },
                         StartMenuEntry("To do list", "habit", "icon-habits") { vm.openWindow("habits") }
@@ -707,7 +721,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         StartMenuEntry("HeartSweeper", "sweeper", "icon-sweeper") { vm.openWindow("sweeper") }
                     )
                     val settingsList = listOf(
-                        StartMenuEntry("Control Panel", "control", "icon-control") { vm.openWindow("control") },
+                        StartMenuEntry("Control Panel", "control") { vm.openWindow("control") },
                         StartMenuEntry("Display", "settings", "icon-settings") { vm.openWindow("settings") },
                         StartMenuEntry("Updates", "status", "icon-status") { vm.openWindow("status") },
                         StartMenuEntry("Weather", "weather") { vm.openWindow("weather") },

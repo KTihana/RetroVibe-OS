@@ -17,6 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -86,6 +89,7 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
     var latestVersion by remember { mutableStateOf<String?>(null) }
     var apkDownloadUrl by remember { mutableStateOf<String?>(null) }
     var downloadedApkFile by remember { mutableStateOf<File?>(null) }
+    var awaitingInstallPerm by remember { mutableStateOf(false) }
     var releaseNotes by remember { mutableStateOf<String?>(null) }
     var updateAvailable by remember { mutableStateOf(false) }
 
@@ -94,22 +98,50 @@ fun SystemUpdatesWindow(vm: OSViewModel, palette: RetroPalette) {
 
     fun installApkFile(apkFile: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
-            statusText = "Allow 'Install unknown apps' for RetroVibe OS, then tap Install APK."
+            awaitingInstallPerm = true
+            statusText = "Allow 'Install unknown apps' for RetroVibe OS — installer will open automatically when you return!"
             val permIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:${context.packageName}")
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(permIntent)
+            try {
+                context.startActivity(permIntent)
+            } catch (e: Throwable) {
+                statusText = "Please enable 'Install unknown apps' in Android Settings."
+            }
             return
         }
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
-        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        awaitingInstallPerm = false
+        try {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(installIntent)
+            statusText = "Installer opened! Tap Update to finish."
+        } catch (e: Throwable) {
+            statusText = "Could not open installer: ${e.message}"
+            RetroSoundEngine.play(RetroSound.ERROR, vm.soundEnabled)
         }
-        context.startActivity(installIntent)
-        statusText = "Installer opened! Tap Update to finish."
+    }
+
+    // Automatically launch the APK installer as soon as the user returns from enabling 'Install unknown apps'
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, awaitingInstallPerm, downloadedApkFile) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && awaitingInstallPerm) {
+                val ready = downloadedApkFile
+                if (ready != null && ready.exists() &&
+                    (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls())
+                ) {
+                    installApkFile(ready)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     fun downloadAndInstallUpdate(overrideUrl: String? = null) {

@@ -72,6 +72,12 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
     var weatherCode by mutableStateOf<Int?>(null)
     var torchOn by mutableStateOf(false)
 
+    // Persistent in-memory Timer state so countdown keeps running even when Clock window is minimized/closed
+    var timerTotalSec by mutableStateOf(25 * 60)
+    var timerPausedLeftSec by mutableStateOf(25 * 60)
+    var timerEndEpochMs by mutableStateOf<Long?>(null)
+    var timerDone by mutableStateOf(false)
+
     fun openBrowserUrl(url: String) {
         pendingBrowserUrl = url
         openWindow("browser")
@@ -108,8 +114,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             WindowState("clock", "Clock, Alarms & Timer", x = 16f, y = 48f, width = 332f, height = 430f),
             WindowState("control", "Control Panel", x = 18f, y = 52f, width = 328f, height = 420f),
             WindowState("weather", "Weather Forecast", x = 22f, y = 60f, width = 320f, height = 370f),
-            WindowState("reader", "RetroVibe Reader", isMaximized = true, x = 10f, y = 24f, width = 350f, height = 500f),
-            WindowState("phoneapps", "Phone Apps", x = 18f, y = 44f, width = 328f, height = 450f)
+            WindowState("reader", "RetroVibe Reader", isMaximized = true, x = 10f, y = 24f, width = 350f, height = 500f)
         )
         defaults.forEach { windows[it.id] = it }
     }
@@ -146,48 +151,49 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
         }
         try {
             val s = gson.fromJson(raw, PersistedOSState::class.java)
-            themeId = s.themeId
+            themeId = s.themeId ?: ThemeId.DEAR_PASTEL
             customWallpaperUri = s.customWallpaperUri
             soundEnabled = s.soundEnabled
-            notes = s.notes
-            folders = s.folders.ifEmpty {
+            notes = s.notes.orEmpty()
+            folders = s.folders.orEmpty().ifEmpty {
                 listOf(
                     FolderItem("root-notes", "00. MY NOTES"),
                     FolderItem("root-art", "01. MS PAINT"),
                     FolderItem("root-voice", "02. VOICE MEMOS")
                 )
             }
-            calendarEntries = s.calendarEntries
+            calendarEntries = s.calendarEntries.orEmpty()
             val today = todayIso()
-            reminders = s.reminders.map { r ->
-                val isDue = !r.completed && r.dueDate.isNotBlank() && r.dueDate <= today && r.dismissedDate != today
-                r.copy(showPopup = isDue)
+            reminders = s.reminders.orEmpty().map { r ->
+                val due = r.dueDate ?: ""
+                val isDue = !r.completed && due.isNotBlank() && due <= today && r.dismissedDate != today
+                r.copy(dueDate = due, showPopup = isDue)
             }
-            todos = s.todos
-            tracks = s.tracks.filterNot { it.isDemo }
-            voiceMemos = s.voiceMemos
-            artworks = s.artworks
-            permittedPhotos = s.permittedPhotos
-            trash = s.trash
-            iconPositions = s.iconPositions
-            hiddenDesktopIcons = s.hiddenDesktopIcons
+            todos = s.todos.orEmpty()
+            tracks = s.tracks.orEmpty().filterNot { it.isDemo }
+            voiceMemos = s.voiceMemos.orEmpty()
+            artworks = s.artworks.orEmpty()
+            permittedPhotos = s.permittedPhotos.orEmpty()
+            trash = s.trash.orEmpty()
+            iconPositions = s.iconPositions.orEmpty()
+            hiddenDesktopIcons = s.hiddenDesktopIcons.orEmpty()
             deskCatEnabled = s.deskCatEnabled
-            deskCatVariant = s.deskCatVariant.ifBlank { "mindi" }
+            deskCatVariant = (s.deskCatVariant ?: "").ifBlank { "mindi" }
             deskCatX = s.deskCatX
-            browserFavorites = s.browserFavorites
+            browserFavorites = s.browserFavorites.orEmpty()
             mailPopupsEnabled = s.mailPopupsEnabled
-            screensaverId = s.screensaverId
+            screensaverId = s.screensaverId ?: ScreensaverId.TOASTERS
             screensaverWaitSec = s.screensaverWaitSec
             crtScanlines = s.crtScanlines
             loginPromptEnabled = s.loginPromptEnabled
-            username = s.username
-            githubRepo = s.githubRepo
-            contacts = s.contacts
-            alarms = s.alarms
-            books = s.books
-            weatherCity = s.weatherCity.ifBlank { "Osijek" }
-            weatherLat = s.weatherLat
-            weatherLon = s.weatherLon
+            username = (s.username ?: "").ifBlank { "RetroUser" }
+            githubRepo = (s.githubRepo ?: "").ifBlank { "KTihana/RetroVibe-OS" }
+            contacts = s.contacts.orEmpty()
+            alarms = s.alarms.orEmpty()
+            books = s.books.orEmpty()
+            weatherCity = (s.weatherCity ?: "").ifBlank { "Osijek" }
+            weatherLat = if (s.weatherLat == 0.0 && s.weatherLon == 0.0) 45.555 else s.weatherLat
+            weatherLon = if (s.weatherLat == 0.0 && s.weatherLon == 0.0) 18.6955 else s.weatherLon
         } catch (_: Throwable) {
             seedDefaults()
         }

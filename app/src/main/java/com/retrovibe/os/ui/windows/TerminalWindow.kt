@@ -378,7 +378,6 @@ fun TerminalWindow(vm: OSViewModel, palette: RetroPalette) {
                     "control" -> "control"
                     "weather" -> "weather"
                     "reader", "books" -> "reader"
-                    "apps", "phoneapps" -> "phoneapps"
                     "music" -> "music"
                     "gallery", "pictures" -> "gallery"
                     "calendar" -> "calendar"

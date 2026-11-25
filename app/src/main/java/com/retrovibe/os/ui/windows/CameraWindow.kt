@@ -311,7 +311,8 @@ private fun processCapturedJpeg(
     res: CamRes,
     quality: CamQuality,
     mirror: Boolean,
-    dateStamp: Boolean
+    dateStamp: Boolean,
+    sensorOrientation: Int
 ): ByteArray {
     if (aspect == CamAspect.FOUR_THREE && res == CamRes.MAX && quality == CamQuality.HIGH && !mirror && !dateStamp) {
         return rawBytes
@@ -332,8 +333,13 @@ private fun processCapturedJpeg(
     }
 
     val decoded = BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size) ?: return rawBytes
-    var current = if (exifRot != 0f) {
-        val m = Matrix().apply { postRotate(exifRot) }
+    val effectiveRot = if (exifRot == 0f && decoded.width > decoded.height && (sensorOrientation == 90 || sensorOrientation == 270)) {
+        sensorOrientation.toFloat()
+    } else {
+        exifRot
+    }
+    var current = if (effectiveRot != 0f) {
+        val m = Matrix().apply { postRotate(effectiveRot) }
         val rotated = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, m, true)
         if (rotated !== decoded) decoded.recycle()
         rotated
@@ -439,6 +445,7 @@ private class PureCameraController(
     private var isFront: Boolean = false
     private var targetCameraId: String? = null
     private var textureView: TextureView? = null
+    private var layoutListener: android.view.View.OnLayoutChangeListener? = null
     private var flashEnabled: Boolean = false
     private var mirrorEnabled: Boolean = false
     private var evSteps: Int = 0
@@ -569,19 +576,27 @@ private class PureCameraController(
         bgThread = thread
         bgHandler = Handler(thread.looper)
 
+        // Always attach listener so aspect-ratio resizes ALWAYS recompute the true 1:1 pixel transform!
+        view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                openCamera(w, h)
+            }
+            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
+                applyViewfinderTransform(view, w, h, previewSize, sensorOrientation, isFront, mirrorEnabled)
+            }
+            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
+        }
+        val listener = android.view.View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (v === textureView && v.width > 0 && v.height > 0) {
+                applyViewfinderTransform(view, v.width, v.height, previewSize, sensorOrientation, isFront, mirrorEnabled)
+            }
+        }
+        layoutListener = listener
+        view.addOnLayoutChangeListener(listener)
+
         if (view.isAvailable) {
             openCamera(view.width, view.height)
-        } else {
-            view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                    openCamera(w, h)
-                }
-                override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
-                    applyViewfinderTransform(view, w, h, previewSize, sensorOrientation, isFront, mirrorEnabled)
-                }
-                override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
-            }
         }
     }
 
@@ -647,7 +662,8 @@ private class PureCameraController(
                             res = optRes,
                             quality = optQuality,
                             mirror = mirrorEnabled,
-                            dateStamp = optDateStamp
+                            dateStamp = optDateStamp,
+                            sensorOrientation = sensorOrientation
                         )
                         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
                         val filename = "RV_$stamp.jpg"
@@ -767,6 +783,8 @@ private class PureCameraController(
     }
 
     fun stop() {
+        layoutListener?.let { l -> textureView?.removeOnLayoutChangeListener(l) }
+        layoutListener = null
         try { captureSession?.close() } catch (_: Throwable) {}
         captureSession = null
         previewBuilder = null
@@ -1219,6 +1237,9 @@ fun CameraWindow(vm: OSViewModel, palette: RetroPalette) {
                                 TextureView(ctx).also { tv ->
                                     textureViewRef = tv
                                 }
+                            },
+                            update = { tv ->
+                                tv.post { controller.refreshPreviewTransform() }
                             },
                             modifier = Modifier.fillMaxSize()
                         )

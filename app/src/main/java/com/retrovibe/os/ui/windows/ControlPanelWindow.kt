@@ -210,22 +210,14 @@ fun ControlPanelWindow(vm: OSViewModel, palette: RetroPalette) {
                     fontSize = 9.sp,
                     color = palette.textSecondary
                 )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    RetroButton(
-                        label = "Switch Home Launcher",
-                        theme = palette,
-                        soundEnabled = vm.soundEnabled,
-                        active = true,
-                        modifier = Modifier.weight(1f),
-                        onClick = { openAndroidSettings(Settings.ACTION_HOME_SETTINGS, "Default Home App") }
-                    )
-                    RetroButton(
-                        label = "Phone Apps",
-                        theme = palette,
-                        soundEnabled = vm.soundEnabled,
-                        onClick = { vm.openWindow("phoneapps") }
-                    )
-                }
+                RetroButton(
+                    label = "Switch Home Launcher",
+                    theme = palette,
+                    soundEnabled = vm.soundEnabled,
+                    active = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { openAndroidSettings(Settings.ACTION_HOME_SETTINGS, "Default Home App") }
+                )
             }
         }
 

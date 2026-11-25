@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,21 +61,34 @@ fun ClockWindow(vm: OSViewModel, palette: RetroPalette) {
     var alarmMin by remember { mutableIntStateOf(30) }
     var alarmLabel by remember { mutableStateOf("") }
 
-    // Focus Timer state
-    var timerTotalSec by remember { mutableIntStateOf(25 * 60) }
-    var timerLeftSec by remember { mutableIntStateOf(25 * 60) }
-    var timerRunning by remember { mutableStateOf(false) }
-    var timerDone by remember { mutableStateOf(false) }
+    // Timer state backed by OSViewModel so countdown keeps running even if Clock is minimized/closed
+    val timerRunning = vm.timerEndEpochMs != null
+    var timerLeftSec by remember {
+        mutableIntStateOf(
+            vm.timerEndEpochMs?.let { ((it - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0) }
+                ?: vm.timerPausedLeftSec
+        )
+    }
+    var customMinInput by remember { mutableStateOf((vm.timerTotalSec / 60).toString()) }
+    var customSecInput by remember { mutableStateOf("%02d".format(vm.timerTotalSec % 60)) }
 
-    LaunchedEffect(timerRunning) {
-        while (timerRunning && timerLeftSec > 0) {
-            delay(1000)
-            timerLeftSec--
-            if (timerLeftSec == 0) {
-                timerRunning = false
-                timerDone = true
-                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                RetroSoundEngine.play(RetroSound.NOTIFY, vm.soundEnabled)
+    LaunchedEffect(vm.timerEndEpochMs) {
+        val endMs = vm.timerEndEpochMs
+        if (endMs == null) {
+            timerLeftSec = vm.timerPausedLeftSec
+        } else {
+            while (vm.timerEndEpochMs == endMs) {
+                val rem = ((endMs - System.currentTimeMillis() + 500L) / 1000L).toInt().coerceAtLeast(0)
+                timerLeftSec = rem
+                if (rem <= 0) {
+                    vm.timerEndEpochMs = null
+                    vm.timerPausedLeftSec = 0
+                    vm.timerDone = true
+                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    RetroSoundEngine.play(RetroSound.NOTIFY, vm.soundEnabled)
+                    break
+                }
+                delay(250)
             }
         }
     }
@@ -146,7 +161,7 @@ fun ClockWindow(vm: OSViewModel, palette: RetroPalette) {
         // Tabs
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             RetroButton("Alarms", palette, active = activeTab == 0, modifier = Modifier.weight(1f), onClick = { activeTab = 0 })
-            RetroButton("Focus", palette, active = activeTab == 1, modifier = Modifier.weight(1f), onClick = { activeTab = 1 })
+            RetroButton("Timer", palette, active = activeTab == 1, modifier = Modifier.weight(1f), onClick = { activeTab = 1 })
             RetroButton("Stopwatch", palette, active = activeTab == 2, modifier = Modifier.weight(1f), onClick = { activeTab = 2 })
         }
 
@@ -272,15 +287,15 @@ fun ClockWindow(vm: OSViewModel, palette: RetroPalette) {
                         verticalArrangement = Arrangement.SpaceEvenly
                     ) {
                         Text(
-                            text = if (timerDone) "TIME'S UP!" else "%02d:%02d".format(timerLeftSec / 60, timerLeftSec % 60),
+                            text = if (vm.timerDone) "TIME'S UP!" else "%02d:%02d".format(timerLeftSec / 60, timerLeftSec % 60),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (timerDone) palette.accentPink else palette.textPrimary
+                            color = if (vm.timerDone) palette.accentPink else palette.textPrimary
                         )
 
                         // Chunky Win98 Progress Bar
-                        val pct = if (timerTotalSec > 0) timerLeftSec.toFloat() / timerTotalSec.toFloat() else 0f
+                        val pct = if (vm.timerTotalSec > 0) timerLeftSec.toFloat() / vm.timerTotalSec.toFloat() else 0f
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -302,6 +317,49 @@ fun ClockWindow(vm: OSViewModel, palette: RetroPalette) {
                             }
                         }
 
+                        // Custom Min : Sec Input
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            BasicTextField(
+                                value = customMinInput,
+                                onValueChange = { s -> customMinInput = s.filter { it.isDigit() }.take(3) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary, textAlign = TextAlign.Center),
+                                modifier = Modifier
+                                    .width(42.dp)
+                                    .background(palette.windowBg)
+                                    .border(1.dp, palette.borderDark)
+                                    .padding(vertical = 4.dp)
+                            )
+                            Text("m", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = palette.textSecondary)
+                            BasicTextField(
+                                value = customSecInput,
+                                onValueChange = { s -> customSecInput = s.filter { it.isDigit() }.take(2) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary, textAlign = TextAlign.Center),
+                                modifier = Modifier
+                                    .width(36.dp)
+                                    .background(palette.windowBg)
+                                    .border(1.dp, palette.borderDark)
+                                    .padding(vertical = 4.dp)
+                            )
+                            Text("s", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = palette.textSecondary)
+                            RetroButton("Set", palette, onClick = {
+                                val m = (customMinInput.toIntOrNull() ?: 0).coerceIn(0, 999)
+                                val s = (customSecInput.toIntOrNull() ?: 0).coerceIn(0, 59)
+                                val total = (m * 60 + s).coerceAtLeast(1)
+                                vm.timerEndEpochMs = null
+                                vm.timerDone = false
+                                vm.timerTotalSec = total
+                                vm.timerPausedLeftSec = total
+                                timerLeftSec = total
+                            })
+                        }
+
                         // Presets
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(5, 15, 25, 45).forEach { mins ->
@@ -309,12 +367,15 @@ fun ClockWindow(vm: OSViewModel, palette: RetroPalette) {
                                     label = "${mins}m",
                                     theme = palette,
                                     soundEnabled = vm.soundEnabled,
-                                    active = timerTotalSec == mins * 60 && !timerRunning,
+                                    active = vm.timerTotalSec == mins * 60 && !timerRunning,
                                     onClick = {
-                                        timerRunning = false
-                                        timerDone = false
-                                        timerTotalSec = mins * 60
+                                        vm.timerEndEpochMs = null
+                                        vm.timerDone = false
+                                        vm.timerTotalSec = mins * 60
+                                        vm.timerPausedLeftSec = mins * 60
                                         timerLeftSec = mins * 60
+                                        customMinInput = mins.toString()
+                                        customSecInput = "00"
                                     }
                                 )
                             }
@@ -323,14 +384,20 @@ fun ClockWindow(vm: OSViewModel, palette: RetroPalette) {
                         // Start / Pause / Reset
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             RetroButton(
-                                label = if (timerRunning) "Pause" else "Start Focus",
+                                label = if (timerRunning) "Pause" else "Start Timer",
                                 theme = palette,
                                 soundEnabled = vm.soundEnabled,
                                 active = true,
                                 onClick = {
-                                    timerDone = false
-                                    if (timerLeftSec == 0) timerLeftSec = timerTotalSec
-                                    timerRunning = !timerRunning
+                                    vm.timerDone = false
+                                    if (timerRunning) {
+                                        vm.timerPausedLeftSec = timerLeftSec
+                                        vm.timerEndEpochMs = null
+                                    } else {
+                                        val startFrom = if (timerLeftSec <= 0) vm.timerTotalSec else timerLeftSec
+                                        vm.timerPausedLeftSec = startFrom
+                                        vm.timerEndEpochMs = System.currentTimeMillis() + startFrom * 1000L
+                                    }
                                 }
                             )
                             RetroButton(
@@ -338,9 +405,10 @@ fun ClockWindow(vm: OSViewModel, palette: RetroPalette) {
                                 theme = palette,
                                 soundEnabled = vm.soundEnabled,
                                 onClick = {
-                                    timerRunning = false
-                                    timerDone = false
-                                    timerLeftSec = timerTotalSec
+                                    vm.timerEndEpochMs = null
+                                    vm.timerDone = false
+                                    vm.timerPausedLeftSec = vm.timerTotalSec
+                                    timerLeftSec = vm.timerTotalSec
                                 }
                             )
                         }

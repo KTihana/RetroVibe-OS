@@ -69,7 +69,6 @@ fun RunDialogWindow(vm: OSViewModel, palette: RetroPalette) {
             "weather" to "weather",
             "reader" to "reader",
             "books" to "reader",
-            "apps" to "phoneapps",
             "recorder" to "recorder"
         )
         when {

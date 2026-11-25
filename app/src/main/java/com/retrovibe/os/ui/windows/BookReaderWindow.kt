@@ -84,7 +84,10 @@ private suspend fun loadBookPages(context: Context, uriStr: String, charsPerPage
                             }
                             entry = zis.nextEntry
                         }
-                        entries.sortedBy { it.first }.forEach { (_, txt) ->
+                        entries.sortedWith(compareBy { (path, _) ->
+                            // Natural numeric sort so chapter2 comes before chapter10
+                            Regex("\\d+").replace(path.lowercase()) { m -> m.value.padStart(6, '0') }
+                        }).forEach { (_, txt) ->
                             sb.append(txt).append("\n\n")
                         }
                     }

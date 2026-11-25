@@ -1245,48 +1245,6 @@ private val ICONS: Map<String, PixelSpec> = mapOf(
             "................................",
             "................................"
         )
-    ),
-    "phoneapps" to PixelSpec(
-        mapOf(
-            'k' to hex(0xFF101228), 'w' to hex(0xFFFFFFFF), 'c' to hex(0xFFF6F0E2),
-            'm' to hex(0xFFDDD4C2), 'd' to hex(0xFF9C9486), 'p' to hex(0xFFF07898),
-            'q' to hex(0xFFFFB4C8), 'b' to hex(0xFF5A82C4), 'l' to hex(0xFF8CB8EC),
-            'g' to hex(0xFF4AE87A), 'y' to hex(0xFFF6CC64)
-        ),
-        listOf(
-            "................................",
-            "................................",
-            "....kkkkkkkkk......kkkkkkkkk....",
-            "...kwwwwwwwwwk....kwwwwwwwwwk...",
-            "...kwpppppppwk....kwbbbbbbbwk...",
-            "...kwpqqqqqpwk....kwblllllbwk...",
-            "...kwpqqqqqpwk....kwblllllbwk...",
-            "...kwpqqqqqpwk....kwblllllbwk...",
-            "...kwpppppppwk....kwbbbbbbbwk...",
-            "...kdddddddddk....kdddddddddk...",
-            "....kkkkkkkkk......kkkkkkkkk....",
-            "................................",
-            "................................",
-            "....kkkkkkkkk......kkkkkkkkk....",
-            "...kwwwwwwwwwk....kwwwwwwwwwk...",
-            "...kwgggggggwk....kwyyyyyyywk...",
-            "...kwglllllgwk....kwywwwwwywk...",
-            "...kwglllllgwk....kwywwwwwywk...",
-            "...kwglllllgwk....kwywwwwwywk...",
-            "...kwgggggggwk....kwyyyyyyywk...",
-            "...kdddddddddk....kdddddddddk...",
-            "....kkkkkkkkk......kkkkkkkkk....",
-            "................................",
-            "................................",
-            "....kkkkkkkkkkkkkkkkkkkkkkkk....",
-            "...kwwwwwwwwwwwwwwwwwwwwwwwwk...",
-            "...kwccccccccccccccccccccccdk...",
-            "...kcmmmmmmmmmmmmmmmmmmmmmmck...",
-            "...kddddddddddddddddddddddddk...",
-            "....kkkkkkkkkkkkkkkkkkkkkkkk....",
-            "................................",
-            "................................"
-        )
     )
 )
 
