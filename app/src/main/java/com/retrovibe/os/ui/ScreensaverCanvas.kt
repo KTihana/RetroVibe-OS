@@ -6,18 +6,30 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import com.retrovibe.os.model.ScreensaverId
 import kotlinx.coroutines.delay
 import kotlin.math.*
 import kotlin.random.Random
 
 private data class Star(var x: Float, var y: Float, var z: Float, var prevZ: Float, val tint: Color)
-private data class ToasterObj(var x: Float, var y: Float, val speed: Float, val isToast: Boolean, val phase: Float)
+private data class ToasterObj(
+    var x: Float,
+    var y: Float,
+    val depth: Float,      // 0.65 (far) .. 1.30 (near)
+    val speed: Float,
+    val isToast: Boolean,
+    val toastiness: Int,   // 0 = light, 1 = golden, 2 = crispy
+    val phase: Float
+)
 private data class Pipe3DSeg(
     val x1: Float, val y1: Float, val z1: Float,
     val x2: Float, val y2: Float, val z2: Float,
@@ -55,14 +67,22 @@ fun ScreensaverCanvas(
         }
     }
     val toasters = remember {
-        List(10) { i ->
+        List(13) { i ->
+            val depth = 0.68f + (i % 5) * 0.14f + Random.nextFloat() * 0.08f
             ToasterObj(
-                x = Random.nextFloat(),
-                y = Random.nextFloat(),
-                speed = 0.0042f + Random.nextFloat() * 0.0038f,
+                x = Random.nextFloat() * 1.35f - 0.15f,
+                y = Random.nextFloat() * 1.25f - 0.15f,
+                depth = depth,
+                speed = (0.0034f + Random.nextFloat() * 0.0022f) * depth,
                 isToast = i % 3 == 0,
-                phase = Random.nextFloat() * 6.28f
+                toastiness = i % 3,
+                phase = Random.nextFloat() * 6.283f
             )
+        }
+    }
+    val skyStars = remember {
+        List(45) { i ->
+            Triple(Random.nextFloat(), Random.nextFloat(), (i % 5) * 0.8f + Random.nextFloat())
         }
     }
     val hearts = remember {
@@ -143,10 +163,16 @@ fun ScreensaverCanvas(
                 ScreensaverId.TOASTERS -> {
                     toasters.forEach { t ->
                         t.x -= t.speed
-                        t.y += t.speed * 0.62f
-                        if (t.x < -0.18f || t.y > 1.18f) {
-                            t.x = 1.06f + Random.nextFloat() * 0.25f
-                            t.y = -0.12f + Random.nextFloat() * 0.55f
+                        t.y += t.speed * 0.58f
+                        if (t.x < -0.22f || t.y > 1.22f) {
+                            // Spawn evenly along right edge OR top edge so the flock never clumps
+                            if (Random.nextBoolean()) {
+                                t.x = 1.08f + Random.nextFloat() * 0.22f
+                                t.y = -0.10f + Random.nextFloat() * 0.65f
+                            } else {
+                                t.x = 0.25f + Random.nextFloat() * 0.90f
+                                t.y = -0.16f - Random.nextFloat() * 0.14f
+                            }
                         }
                     }
                 }
@@ -280,37 +306,254 @@ fun ScreensaverCanvas(
             }
 
             ScreensaverId.TOASTERS -> {
-                toasters.forEach { obj ->
+                // Subtle twinkling deep-space stars behind the flock
+                skyStars.forEach { (sx, sy, ph) ->
+                    val tw = (0.35f + 0.65f * ((sin(t * 0.08 + ph).toFloat() + 1f) / 2f))
+                    val starSize = (size.minDimension * 0.0055f).coerceIn(1.5f, 3.2f)
+                    drawRect(
+                        Color(0xFFDDE8FF).copy(alpha = tw * 0.55f),
+                        Offset(sx * size.width, sy * size.height),
+                        Size(starSize, starSize)
+                    )
+                }
+
+                // Draw farthest-to-nearest for true parallax depth
+                val sortedFlock = toasters.sortedBy { it.depth }
+                sortedFlock.forEach { obj ->
+                    val baseSize = (size.minDimension * 0.135f * obj.depth).coerceIn(18f, 68f)
+                    val s = baseSize
+                    val strokeW = (s * 0.045f).coerceIn(1.2f, 2.8f)
                     val px = obj.x * size.width
-                    val py = obj.y * size.height
-                    val s = (size.minDimension * 0.11f).coerceIn(14f, 44f)
-                    val u = s / 10f
+                    val bob = if (obj.isToast) sin(t * 0.14 + obj.phase).toFloat() * s * 0.06f
+                              else sin(t * 0.28 + obj.phase).toFloat() * s * 0.09f
+                    val py = obj.y * size.height + bob
+
                     if (obj.isToast) {
-                        drawRect(Color(0xFF14101C), Offset(px - u, py - u), Size(s + 2 * u, s * 0.9f + 2 * u))
-                        drawRect(Color(0xFF9C5420), Offset(px, py), Size(s, s * 0.9f))
-                        drawRect(Color(0xFFC87A38), Offset(px + u * 0.6f, py + u * 0.6f), Size(s - u * 1.2f, s * 0.9f - u * 1.2f))
-                        drawRect(Color(0xFFF2C878), Offset(px + u * 1.4f, py + u * 1.4f), Size(s - u * 2.8f, s * 0.9f - u * 2.8f))
-                        drawRect(Color(0xFFFFEE88), Offset(px + u * 3.4f, py + u * 3.0f), Size(u * 3.2f, u * 2.4f))
-                        drawRect(Color(0xFFFFFFFF), Offset(px + u * 3.6f, py + u * 3.2f), Size(u * 1.2f, u * 0.8f))
+                        // Classic domed slice of buttered toast (3 toastiness shades)
+                        val (crustCol, crumbTop, crumbBot) = when (obj.toastiness) {
+                            0 -> Triple(Color(0xFF9C5E26), Color(0xFFFBE2A8), Color(0xFFE7BC72))
+                            1 -> Triple(Color(0xFF7C4214), Color(0xFFE8B464), Color(0xFFC88636))
+                            else -> Triple(Color(0xFF54280B), Color(0xFFC68036), Color(0xFF9E5A1E))
+                        }
+                        val tiltDeg = -14f + sin(t * 0.12 + obj.phase).toFloat() * 5f
+                        val tw = s * 0.88f
+                        val th = s * 0.86f
+                        rotate(tiltDeg, pivot = Offset(px + tw / 2f, py + th / 2f)) {
+                            fun toastPath(inset: Float): Path {
+                                val l = px + inset
+                                val r = px + tw - inset
+                                val top = py + inset
+                                val bot = py + th - inset
+                                val w = r - l
+                                val h = bot - top
+                                val neckY = top + h * 0.34f
+                                return Path().apply {
+                                    // Domed bread top
+                                    moveTo(l + w * 0.06f, neckY)
+                                    cubicTo(l - w * 0.06f, top + h * 0.04f, l + w * 0.25f, top, l + w * 0.50f, top)
+                                    cubicTo(l + w * 0.75f, top, r + w * 0.06f, top + h * 0.04f, r - w * 0.06f, neckY)
+                                    // Tapered lower slice body
+                                    lineTo(r - w * 0.09f, bot - h * 0.08f)
+                                    quadraticTo(r - w * 0.09f, bot, r - w * 0.20f, bot)
+                                    lineTo(l + w * 0.20f, bot)
+                                    quadraticTo(l + w * 0.09f, bot, l + w * 0.09f, bot - h * 0.08f)
+                                    close()
+                                }
+                            }
+
+                            // Crust + dark outline
+                            val outer = toastPath(0f)
+                            drawPath(outer, crustCol)
+                            drawPath(outer, Color(0xFF1A0E08), style = Stroke(width = strokeW))
+
+                            // Golden crumb interior
+                            val inner = toastPath(s * 0.085f)
+                            drawPath(
+                                inner,
+                                Brush.verticalGradient(
+                                    listOf(crumbTop, crumbBot),
+                                    startY = py,
+                                    endY = py + th
+                                )
+                            )
+
+                            // Melting butter pat + glossy highlight
+                            val bx = px + tw * 0.34f
+                            val by = py + th * 0.36f
+                            val bw = tw * 0.34f
+                            val bh = th * 0.28f
+                            drawRoundRect(
+                                Color(0xFFE0A420),
+                                Offset(bx + s * 0.02f, by + s * 0.03f),
+                                Size(bw, bh),
+                                CornerRadius(s * 0.07f, s * 0.07f)
+                            )
+                            drawRoundRect(
+                                Color(0xFFFFF08A),
+                                Offset(bx, by),
+                                Size(bw, bh),
+                                CornerRadius(s * 0.07f, s * 0.07f)
+                            )
+                            drawRoundRect(
+                                Color.White.copy(alpha = 0.85f),
+                                Offset(bx + bw * 0.14f, by + bh * 0.16f),
+                                Size(bw * 0.42f, bh * 0.26f),
+                                CornerRadius(s * 0.04f, s * 0.04f)
+                            )
+                        }
                     } else {
-                        val flap = sin(t * 0.36 + obj.phase).toFloat()
-                        val wy = py + (-flap * s * 0.36f)
-                        drawRect(Color(0xFF101224), Offset(px - s * 0.48f, wy - u), Size(s * 0.52f, s * 0.34f))
-                        drawRect(Color.White, Offset(px - s * 0.44f, wy - u * 0.4f), Size(s * 0.44f, s * 0.22f))
-                        drawRect(Color(0xFFCCD6E4), Offset(px - s * 0.42f, wy + u * 1.1f), Size(s * 0.38f, s * 0.08f))
+                        // Iconic After Dark Flying Chrome Toaster with articulated feathered wings!
+                        val flap = sin(t * 0.28 + obj.phase).toFloat() // -1 (wings up) .. +1 (wings down)
+                        val bodyW = s * 1.05f
+                        val bodyH = s * 0.78f
 
-                        drawRect(Color(0xFF101224), Offset(px + s * 0.96f, wy - u), Size(s * 0.52f, s * 0.34f))
-                        drawRect(Color.White, Offset(px + s * 1.0f, wy - u * 0.4f), Size(s * 0.44f, s * 0.22f))
-                        drawRect(Color(0xFFCCD6E4), Offset(px + s * 1.02f, wy + u * 1.1f), Size(s * 0.38f, s * 0.08f))
+                        fun drawFeatheredWing(rootX: Float, rootY: Float, dirX: Float, wingScale: Float, isBack: Boolean) {
+                            val wingLen = s * 0.92f * wingScale
+                            val tipLift = -flap * s * 0.62f * wingScale - s * 0.18f * wingScale
+                            val midLift = tipLift * 0.55f - s * 0.14f * wingScale
 
-                        drawRect(Color(0xFF101224), Offset(px - u, py - u), Size(s + 2 * u, s * 0.86f + 2 * u))
-                        drawRect(Color(0xFFB4C0CE), Offset(px, py), Size(s, s * 0.82f))
-                        drawRect(Color(0xFFEAF0F8), Offset(px + u, py + u * 0.6f), Size(s * 0.36f, s * 0.64f))
-                        drawRect(Color.White, Offset(px + u * 1.5f, py + u), Size(u * 1.2f, s * 0.56f))
-                        drawRect(Color(0xFF728092), Offset(px + s * 0.72f, py + u * 0.6f), Size(s * 0.26f, s * 0.68f))
-                        drawRect(Color(0xFF1C1E2C), Offset(px + s * 0.18f, py + u * 0.6f), Size(s * 0.62f, u * 0.9f))
-                        drawRect(Color(0xFFE85C88), Offset(px + s * 0.84f, py + s * 0.42f), Size(u * 1.4f, u * 1.2f))
-                        drawRect(Color(0xFF282C38), Offset(px, py + s * 0.72f), Size(s, s * 0.14f))
+                            val tipX = rootX + dirX * wingLen
+                            val tipY = rootY + tipLift
+                            val leadCtrlX = rootX + dirX * wingLen * 0.52f
+                            val leadCtrlY = rootY + midLift - s * 0.16f * wingScale
+
+                            val wingPath = Path().apply {
+                                moveTo(rootX, rootY)
+                                // Smooth arched leading edge
+                                quadraticTo(leadCtrlX, leadCtrlY, tipX, tipY)
+                                // 3 sculpted feather scallops along trailing edge
+                                val f1x = rootX + dirX * wingLen * 0.76f
+                                val f1y = tipY + s * 0.20f * wingScale + flap * s * 0.06f
+                                val f2x = rootX + dirX * wingLen * 0.50f
+                                val f2y = rootY + midLift + s * 0.26f * wingScale + flap * s * 0.08f
+                                val f3x = rootX + dirX * wingLen * 0.24f
+                                val f3y = rootY + s * 0.24f * wingScale
+                                quadraticTo(tipX - dirX * s * 0.06f, f1y, f1x, f1y - s * 0.04f)
+                                quadraticTo(f1x - dirX * s * 0.08f, f2y, f2x, f2y - s * 0.04f)
+                                quadraticTo(f2x - dirX * s * 0.08f, f3y + s * 0.05f, f3x, f3y)
+                                lineTo(rootX, rootY + s * 0.16f * wingScale)
+                                close()
+                            }
+
+                            val topTint = if (isBack) Color(0xFFD6E0EE) else Color(0xFFFFFFFF)
+                            val botTint = if (isBack) Color(0xFF8C9CB4) else Color(0xFFB8C8DE)
+                            drawPath(
+                                wingPath,
+                                Brush.verticalGradient(
+                                    listOf(topTint, botTint),
+                                    startY = minOf(rootY, tipY) - s * 0.15f,
+                                    endY = maxOf(rootY, tipY) + s * 0.35f
+                                )
+                            )
+                            drawPath(wingPath, Color(0xFF141828), style = Stroke(width = strokeW * 0.9f))
+                        }
+
+                        // 1) Back wing (behind toaster body, slightly offset up-right)
+                        drawFeatheredWing(
+                            rootX = px + bodyW * 0.62f,
+                            rootY = py + bodyH * 0.10f,
+                            dirX = 1f,
+                            wingScale = 0.86f,
+                            isBack = true
+                        )
+
+                        // 2) Dark Bakelite base & feet
+                        drawRoundRect(
+                            Color(0xFF1B1E2A),
+                            Offset(px + bodyW * 0.04f, py + bodyH * 0.80f),
+                            Size(bodyW * 0.92f, bodyH * 0.22f),
+                            CornerRadius(s * 0.08f, s * 0.08f)
+                        )
+
+                        // 3) Rounded shiny chrome toaster body with multi-stop specular reflection
+                        val bodyCorner = CornerRadius(s * 0.22f, s * 0.22f)
+                        drawRoundRect(
+                            Brush.horizontalGradient(
+                                0.00f to Color(0xFF546275),
+                                0.18f to Color(0xFFDCE6F4),
+                                0.34f to Color(0xFFFFFFFF),
+                                0.52f to Color(0xFFA6B6CC),
+                                0.78f to Color(0xFF6B7B92),
+                                0.92f to Color(0xFFCFDCEE),
+                                1.00f to Color(0xFF3E4858),
+                                startX = px,
+                                endX = px + bodyW
+                            ),
+                            Offset(px, py),
+                            Size(bodyW, bodyH * 0.88f),
+                            bodyCorner
+                        )
+                        // Subtle top chrome crown highlight
+                        drawRoundRect(
+                            Brush.verticalGradient(
+                                listOf(Color.White.copy(alpha = 0.65f), Color.Transparent),
+                                startY = py,
+                                endY = py + bodyH * 0.36f
+                            ),
+                            Offset(px + strokeW, py + strokeW),
+                            Size(bodyW - strokeW * 2f, bodyH * 0.34f),
+                            bodyCorner
+                        )
+                        // Crisp toaster outline
+                        drawRoundRect(
+                            Color(0xFF101320),
+                            Offset(px, py),
+                            Size(bodyW, bodyH * 0.88f),
+                            bodyCorner,
+                            style = Stroke(width = strokeW)
+                        )
+
+                        // 4) Two angled dark toast slots on top deck
+                        drawRoundRect(
+                            Color(0xFF151722),
+                            Offset(px + bodyW * 0.18f, py + bodyH * 0.11f),
+                            Size(bodyW * 0.56f, bodyH * 0.10f),
+                            CornerRadius(s * 0.04f, s * 0.04f)
+                        )
+                        drawRoundRect(
+                            Color(0xFF151722),
+                            Offset(px + bodyW * 0.24f, py + bodyH * 0.25f),
+                            Size(bodyW * 0.54f, bodyH * 0.09f),
+                            CornerRadius(s * 0.04f, s * 0.04f)
+                        )
+                        // Warm cozy golden toast peeking slightly from top slot
+                        drawRoundRect(
+                            Color(0xFFE6A44C),
+                            Offset(px + bodyW * 0.23f, py + bodyH * 0.06f),
+                            Size(bodyW * 0.44f, bodyH * 0.08f),
+                            CornerRadius(s * 0.03f, s * 0.03f)
+                        )
+
+                        // 5) Classic front lever slot + pastel-pink retro knob
+                        val leverX = px + bodyW * 0.14f
+                        drawRoundRect(
+                            Color(0xFF222634),
+                            Offset(leverX, py + bodyH * 0.42f),
+                            Size(bodyW * 0.06f, bodyH * 0.32f),
+                            CornerRadius(s * 0.02f, s * 0.02f)
+                        )
+                        drawRoundRect(
+                            Color(0xFFF06A96),
+                            Offset(leverX - bodyW * 0.05f, py + bodyH * 0.52f),
+                            Size(bodyW * 0.16f, bodyH * 0.12f),
+                            CornerRadius(s * 0.04f, s * 0.04f)
+                        )
+                        drawRoundRect(
+                            Color(0xFF101320),
+                            Offset(leverX - bodyW * 0.05f, py + bodyH * 0.52f),
+                            Size(bodyW * 0.16f, bodyH * 0.12f),
+                            CornerRadius(s * 0.04f, s * 0.04f),
+                            style = Stroke(width = strokeW * 0.7f)
+                        )
+
+                        // 6) Front wing (attached to near side of toaster, sweeping gracefully!)
+                        drawFeatheredWing(
+                            rootX = px + bodyW * 0.46f,
+                            rootY = py + bodyH * 0.36f,
+                            dirX = -1f,
+                            wingScale = 1.0f,
+                            isBack = false
+                        )
                     }
                 }
             }
