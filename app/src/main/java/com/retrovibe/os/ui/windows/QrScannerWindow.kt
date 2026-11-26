@@ -7,10 +7,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
-import android.graphics.Matrix
+import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
+import android.hardware.camera2.params.MeteringRectangle
 import android.media.ImageReader
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Size as AndroidSize
@@ -19,16 +21,29 @@ import android.view.Surface
 import android.view.TextureView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -52,8 +67,9 @@ import com.retrovibe.os.theme.textDark
 import com.retrovibe.os.ui.BevelBox
 import com.retrovibe.os.ui.PixelIcon
 import com.retrovibe.os.ui.RetroButton
-import com.retrovibe.os.ui.win98Bevel
+import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private fun isLikelyUrl(text: String): Boolean {
     val t = text.trim()
@@ -62,11 +78,20 @@ private fun isLikelyUrl(text: String): Boolean {
         t.startsWith("www.", ignoreCase = true)
 }
 
+private enum class FocusVisualState {
+    IDLE,
+    FOCUSING,
+    LOCKED
+}
+
 private class QrCameraController(
     private val context: Context,
     private val onStatus: (String) -> Unit,
     private val onQrDetected: (String) -> Unit,
-    private val onFlashAvailable: (Boolean) -> Unit
+    private val onFlashAvailable: (Boolean) -> Unit,
+    private val onPreviewAspectKnown: (Float) -> Unit,
+    private val onZoomRangeKnown: (Float, Float) -> Unit,
+    private val onFocusStateChanged: (FocusVisualState) -> Unit
 ) {
     private val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private var bgThread: HandlerThread? = null
@@ -75,10 +100,17 @@ private class QrCameraController(
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
     private var previewBuilder: CaptureRequest.Builder? = null
+    private var characteristics: CameraCharacteristics? = null
+    private var activeArraySize: Rect? = null
     private var previewSize: AndroidSize = AndroidSize(1280, 960)
     private var sensorOrientation: Int = 90
     private var textureView: TextureView? = null
     private var torchEnabled: Boolean = false
+    private var minZoom: Float = 1f
+    private var maxZoom: Float = 4f
+    private var zoomRatio: Float = 1f
+    private var afResetRunnable: Runnable? = null
+    @Volatile private var waitingForAfLock: Boolean = false
     @Volatile private var paused: Boolean = false
     private var lastDecodeMs: Long = 0L
 
@@ -91,6 +123,30 @@ private class QrCameraController(
         )
     }
 
+    private val afCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            result: TotalCaptureResult
+        ) {
+            if (!waitingForAfLock) return
+            val afState = result.get(CaptureResult.CONTROL_AF_STATE) ?: return
+            when (afState) {
+                CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED,
+                CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED -> {
+                    waitingForAfLock = false
+                    onFocusStateChanged(FocusVisualState.LOCKED)
+                    if (!paused) onStatus("Focused — point at QR code")
+                }
+                CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED -> {
+                    waitingForAfLock = false
+                    onFocusStateChanged(FocusVisualState.LOCKED)
+                    if (!paused) onStatus("Tap again to refocus")
+                }
+            }
+        }
+    }
+
     fun setPaused(value: Boolean) {
         paused = value
     }
@@ -99,13 +155,136 @@ private class QrCameraController(
         torchEnabled = enabled
         val session = captureSession ?: return
         val builder = previewBuilder ?: return
-        try {
-            builder.set(
-                CaptureRequest.FLASH_MODE,
-                if (enabled) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF
-            )
-            session.setRepeatingRequest(builder.build(), null, bgHandler)
-        } catch (_: Throwable) {}
+        val handler = bgHandler ?: return
+        handler.post {
+            try {
+                builder.set(
+                    CaptureRequest.FLASH_MODE,
+                    if (enabled) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF
+                )
+                session.setRepeatingRequest(builder.build(), afCaptureCallback, handler)
+            } catch (_: Throwable) {}
+        }
+    }
+
+    fun setZoom(zoom: Float) {
+        val clamped = zoom.coerceIn(minZoom, maxZoom)
+        if (abs(clamped - zoomRatio) < 0.01f) return
+        zoomRatio = clamped
+        val session = captureSession ?: return
+        val builder = previewBuilder ?: return
+        val handler = bgHandler ?: return
+        handler.post {
+            try {
+                applyZoomToBuilder(builder)
+                session.setRepeatingRequest(builder.build(), afCaptureCallback, handler)
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun currentCropRegion(): Rect? {
+        val full = activeArraySize ?: return null
+        if (zoomRatio <= 1.01f) return full
+        val cropW = (full.width() / zoomRatio).roundToInt().coerceAtLeast(1)
+        val cropH = (full.height() / zoomRatio).roundToInt().coerceAtLeast(1)
+        val left = (full.width() - cropW) / 2
+        val top = (full.height() - cropH) / 2
+        return Rect(left, top, left + cropW, top + cropH)
+    }
+
+    private fun applyZoomToBuilder(builder: CaptureRequest.Builder) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val zRange = characteristics?.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
+            if (zRange != null) {
+                builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomRatio.coerceIn(zRange.lower, zRange.upper))
+                return
+            }
+        }
+        currentCropRegion()?.let { builder.set(CaptureRequest.SCALER_CROP_REGION, it) }
+    }
+
+    fun tapToFocus(normX: Float, normY: Float) {
+        val session = captureSession ?: return
+        val builder = previewBuilder ?: return
+        val handler = bgHandler ?: return
+        val full = activeArraySize ?: return
+        val chars = characteristics ?: return
+
+        handler.post {
+            try {
+                // Cancel any pending return to continuous AF
+                afResetRunnable?.let { handler.removeCallbacks(it) }
+
+                val (sxNorm, syNorm) = when (sensorOrientation) {
+                    90 -> normY to (1f - normX)
+                    270 -> (1f - normY) to normX
+                    180 -> (1f - normX) to (1f - normY)
+                    else -> normX to normY
+                }
+                val region = currentCropRegion() ?: full
+                val cx = (region.left + sxNorm.coerceIn(0f, 1f) * region.width()).roundToInt()
+                val cy = (region.top + syNorm.coerceIn(0f, 1f) * region.height()).roundToInt()
+                val half = (minOf(region.width(), region.height()) * 0.085f).roundToInt().coerceAtLeast(48)
+                val focusRect = Rect(
+                    (cx - half).coerceIn(full.left, full.right - 1),
+                    (cy - half).coerceIn(full.top, full.bottom - 1),
+                    (cx + half).coerceIn(full.left + 1, full.right),
+                    (cy + half).coerceIn(full.top + 1, full.bottom)
+                )
+                val metering = MeteringRectangle(focusRect, MeteringRectangle.METERING_WEIGHT_MAX - 1)
+
+                val maxAf = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF) ?: 0
+                val maxAe = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+                val afModes = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: intArrayOf()
+
+                // Step 1: Cancel any existing AF lock so the HAL actually runs a fresh focus sweep
+                builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL)
+                session.capture(builder.build(), null, handler)
+
+                // Step 2: Set metering regions + AUTO AF mode + START trigger
+                if (maxAf > 0) {
+                    builder.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(metering))
+                }
+                if (maxAe > 0) {
+                    builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(metering))
+                }
+                if (afModes.contains(CaptureRequest.CONTROL_AF_MODE_AUTO)) {
+                    builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
+                }
+                builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START)
+
+                waitingForAfLock = true
+                onFocusStateChanged(FocusVisualState.FOCUSING)
+                if (!paused) onStatus("Focusing...")
+
+                // Fire AF trigger capture, then hold repeating preview with IDLE trigger
+                session.capture(builder.build(), afCaptureCallback, handler)
+                builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE)
+                session.setRepeatingRequest(builder.build(), afCaptureCallback, handler)
+
+                // Step 3: Automatically return to continuous autofocus after 4.5s so moving to a new QR works smoothly
+                val resetTask = Runnable {
+                    try {
+                        val s = captureSession ?: return@Runnable
+                        val b = previewBuilder ?: return@Runnable
+                        waitingForAfLock = false
+                        if (afModes.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)) {
+                            b.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                        }
+                        if (maxAf > 0) {
+                            b.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(MeteringRectangle(0, 0, 0, 0, 0)))
+                        }
+                        if (maxAe > 0) {
+                            b.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(MeteringRectangle(0, 0, 0, 0, 0)))
+                        }
+                        b.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE)
+                        s.setRepeatingRequest(b.build(), afCaptureCallback, handler)
+                    } catch (_: Throwable) {}
+                }
+                afResetRunnable = resetTask
+                handler.postDelayed(resetTask, 4500L)
+            } catch (_: Throwable) {}
+        }
     }
 
     fun start(view: TextureView) {
@@ -116,38 +295,22 @@ private class QrCameraController(
         bgThread = thread
         bgHandler = Handler(thread.looper)
 
-        if (view.isAvailable) {
-            openCamera(view.width, view.height)
-        } else {
-            view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                    openCamera(w, h)
-                }
-                override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
-                    applyTransform(view, w, h)
-                }
-                override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
+        view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                openCamera()
             }
+            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) = Unit
+            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
+        }
+
+        if (view.isAvailable) {
+            openCamera()
         }
     }
 
-    private fun applyTransform(view: TextureView, viewW: Int, viewH: Int) {
-        if (viewW <= 0 || viewH <= 0) return
-        val swapped = sensorOrientation == 90 || sensorOrientation == 270
-        val bufW = if (swapped) previewSize.height.toFloat() else previewSize.width.toFloat()
-        val bufH = if (swapped) previewSize.width.toFloat() else previewSize.height.toFloat()
-        val bufAspect = bufW / bufH
-        val viewAspect = viewW.toFloat() / viewH.toFloat()
-        val scaleX = if (bufAspect > viewAspect) bufAspect / viewAspect else 1f
-        val scaleY = if (bufAspect > viewAspect) 1f else viewAspect / bufAspect
-        val matrix = Matrix()
-        matrix.setScale(scaleX, scaleY, viewW / 2f, viewH / 2f)
-        view.setTransform(matrix)
-    }
-
     @SuppressLint("MissingPermission")
-    private fun openCamera(viewW: Int, viewH: Int) {
+    private fun openCamera() {
         try {
             val camId = manager.cameraIdList.firstOrNull { id ->
                 manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) ==
@@ -160,8 +323,22 @@ private class QrCameraController(
             }
 
             val chars = manager.getCameraCharacteristics(camId)
+            characteristics = chars
             sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
+            activeArraySize = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
             onFlashAvailable(chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true)
+
+            minZoom = 1f
+            maxZoom = (chars.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 1f).coerceIn(1f, 4f)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val zRange = chars.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
+                if (zRange != null) {
+                    minZoom = zRange.lower.coerceIn(0.6f, 1f)
+                    maxZoom = zRange.upper.coerceIn(1f, 4f)
+                }
+            }
+            zoomRatio = zoomRatio.coerceIn(minZoom, maxZoom)
+            onZoomRangeKnown(minZoom, maxZoom)
 
             val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             val prevSizes = map?.getOutputSizes(SurfaceTexture::class.java)
@@ -171,13 +348,17 @@ private class QrCameraController(
                 ?: prevSizes?.firstOrNull()
                 ?: AndroidSize(1280, 960)
 
+            val swapped = sensorOrientation == 90 || sensorOrientation == 270
+            val bufW = if (swapped) previewSize.height.toFloat() else previewSize.width.toFloat()
+            val bufH = if (swapped) previewSize.width.toFloat() else previewSize.height.toFloat()
+            onPreviewAspectKnown((bufW / bufH).coerceIn(0.4f, 2.5f))
+
             val yuvSizes = map?.getOutputSizes(ImageFormat.YUV_420_888)
             val scanSize = yuvSizes
-                ?.filter { maxOf(it.width, it.height) in 480..960 }
-                ?.minByOrNull { abs(maxOf(it.width, it.height) - 640) }
-                ?: AndroidSize(640, 480)
-
-            textureView?.let { tv -> tv.post { applyTransform(tv, viewW, viewH) } }
+                ?.filter { maxOf(it.width, it.height) in 720..1440 }
+                ?.minByOrNull { abs(maxOf(it.width, it.height) - 1280) }
+                ?: yuvSizes?.filter { maxOf(it.width, it.height) in 480..1280 }?.maxByOrNull { it.width * it.height }
+                ?: AndroidSize(960, 720)
 
             imageReader?.close()
             imageReader = ImageReader.newInstance(scanSize.width, scanSize.height, ImageFormat.YUV_420_888, 2).apply {
@@ -185,7 +366,7 @@ private class QrCameraController(
                     val img = r.acquireLatestImage() ?: return@setOnImageAvailableListener
                     try {
                         val now = System.currentTimeMillis()
-                        if (paused || now - lastDecodeMs < 140L) return@setOnImageAvailableListener
+                        if (paused || now - lastDecodeMs < 130L) return@setOnImageAvailableListener
                         lastDecodeMs = now
 
                         val plane = img.planes[0]
@@ -208,11 +389,15 @@ private class QrCameraController(
                         }
 
                         val source = PlanarYUVLuminanceSource(yData, w, h, 0, 0, w, h, false)
-                        val bitmap = BinaryBitmap(HybridBinarizer(source))
                         val result = try {
-                            reader.decodeWithState(bitmap)
+                            reader.decodeWithState(BinaryBitmap(HybridBinarizer(source)))
                         } catch (_: Throwable) {
-                            null
+                            try {
+                                reader.reset()
+                                reader.decodeWithState(BinaryBitmap(HybridBinarizer(source.invert())))
+                            } catch (_: Throwable) {
+                                null
+                            }
                         } finally {
                             reader.reset()
                         }
@@ -262,10 +447,12 @@ private class QrCameraController(
                 addTarget(previewSurface)
                 addTarget(reader.surface)
                 set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+                set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
                 val afModes = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)
                 if (afModes != null && afModes.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)) {
                     set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
                 }
+                applyZoomToBuilder(this)
                 if (torchEnabled) {
                     set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
                 }
@@ -279,8 +466,8 @@ private class QrCameraController(
                         if (cameraDevice == null) return
                         captureSession = session
                         try {
-                            session.setRepeatingRequest(builder.build(), null, bgHandler)
-                            onStatus("Point camera at any QR code...")
+                            session.setRepeatingRequest(builder.build(), afCaptureCallback, bgHandler)
+                            onStatus("Point at QR code · Tap screen to focus")
                         } catch (t: Throwable) {
                             onStatus("Preview error: ${t.message}")
                         }
@@ -297,6 +484,9 @@ private class QrCameraController(
     }
 
     fun stop() {
+        afResetRunnable?.let { bgHandler?.removeCallbacks(it) }
+        afResetRunnable = null
+        waitingForAfLock = false
         try { captureSession?.close() } catch (_: Throwable) {}
         captureSession = null
         previewBuilder = null
@@ -314,6 +504,7 @@ private class QrCameraController(
 fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
     val context = LocalContext.current
     val view = LocalView.current
+    val density = LocalDensity.current
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -324,6 +515,15 @@ fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
     var statusText by remember { mutableStateOf("Initializing QR Scanner...") }
     var scannedResult by remember { mutableStateOf<String?>(null) }
     var textureViewRef by remember { mutableStateOf<TextureView?>(null) }
+
+    var previewAspect by remember { mutableStateOf(0.75f) }
+    var minZoom by remember { mutableStateOf(1f) }
+    var maxZoom by remember { mutableStateOf(4f) }
+    var zoomRatio by remember { mutableStateOf(1f) }
+
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
+    var focusSeq by remember { mutableStateOf(0) }
+    var focusState by remember { mutableStateOf(FocusVisualState.IDLE) }
 
     val permLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -356,12 +556,41 @@ fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
                     flashAvailable = avail
                     if (!avail) torchOn = false
                 }
+            },
+            onPreviewAspectKnown = { asp ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    previewAspect = asp
+                }
+            },
+            onZoomRangeKnown = { mn, mx ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    minZoom = mn
+                    maxZoom = mx
+                    zoomRatio = zoomRatio.coerceIn(mn, mx)
+                }
+            },
+            onFocusStateChanged = { st ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    focusState = st
+                }
             }
         )
     }
 
     LaunchedEffect(torchOn) {
         controller.setTorch(torchOn)
+    }
+
+    LaunchedEffect(zoomRatio) {
+        controller.setZoom(zoomRatio)
+    }
+
+    LaunchedEffect(focusSeq) {
+        if (focusSeq > 0) {
+            delay(1600L)
+            focusPoint = null
+            focusState = FocusVisualState.IDLE
+        }
     }
 
     DisposableEffect(hasPermission, textureViewRef) {
@@ -373,6 +602,17 @@ fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
             controller.stop()
         }
     }
+
+    val scanAnim = rememberInfiniteTransition(label = "qrLaser")
+    val laserProgress by scanAnim.animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.92f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1900, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "qrLaserY"
+    )
 
     Column(
         modifier = Modifier
@@ -399,6 +639,15 @@ fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
                         onClick = { torchOn = !torchOn }
                     )
                 }
+                if (abs(zoomRatio - 1f) > 0.05f) {
+                    RetroButton(
+                        label = "${"%.1f".format(zoomRatio)}x",
+                        theme = palette,
+                        soundEnabled = vm.soundEnabled,
+                        active = true,
+                        onClick = { zoomRatio = 1f }
+                    )
+                }
                 if (scannedResult != null) {
                     RetroButton(
                         label = "Scan Again",
@@ -407,7 +656,7 @@ fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
                         active = true,
                         onClick = {
                             scannedResult = null
-                            statusText = "Point camera at any QR code..."
+                            statusText = "Point at QR code · Tap screen to focus"
                             controller.setPaused(false)
                         }
                     )
@@ -430,7 +679,7 @@ fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(if (hasPermission) Color(0xFF141820) else palette.windowSurface)
@@ -467,28 +716,140 @@ fun QrScannerWindow(vm: OSViewModel, palette: RetroPalette) {
                         )
                     }
                 } else {
-                    AndroidView(
-                        factory = { ctx ->
-                            TextureView(ctx).also { tv -> textureViewRef = tv }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    val boxW = maxWidth
+                    val boxH = maxHeight
+                    val boxWPx = with(density) { boxW.toPx() }
+                    val boxHPx = with(density) { boxH.toPx() }
+                    val boxAspect = if (boxHPx > 0f) boxWPx / boxHPx else previewAspect
 
-                    // Classic QR Target Box + Pink Laser Line
+                    // Size TextureView to exact previewAspect covering the viewport (zero warping!)
+                    val tvW = if (previewAspect > boxAspect) boxH * previewAspect else boxW
+                    val tvH = if (previewAspect > boxAspect) boxH else boxW / previewAspect
+                    val tvWPx = with(density) { tvW.toPx() }
+                    val tvHPx = with(density) { tvH.toPx() }
+
                     Box(
                         modifier = Modifier
-                            .size(180.dp)
-                            .border(2.dp, if (scannedResult != null) Color(0xFF4AE87A) else palette.accentPink),
+                            .fillMaxSize()
+                            .clipToBounds()
+                            .pointerInput(minZoom, maxZoom, boxWPx, boxHPx, tvWPx, tvHPx) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    val startPos = down.position
+                                    var multiTouch = false
+                                    var moved = false
+                                    val slop = viewConfiguration.touchSlop
+
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val pressed = event.changes.filter { it.pressed }
+                                        if (pressed.isEmpty()) {
+                                            event.changes.forEach { it.consume() }
+                                            break
+                                        }
+                                        if (pressed.size >= 2) {
+                                            multiTouch = true
+                                            val z = event.calculateZoom()
+                                            if (z != 1f) {
+                                                zoomRatio = (zoomRatio * z).coerceIn(minZoom, maxZoom)
+                                            }
+                                            event.changes.forEach { it.consume() }
+                                        } else if (!multiTouch) {
+                                            val ch = event.changes.firstOrNull { it.id == down.id } ?: break
+                                            if ((ch.position - startPos).getDistance() > slop) {
+                                                moved = true
+                                            }
+                                            ch.consume()
+                                        } else {
+                                            event.changes.forEach { it.consume() }
+                                        }
+                                    }
+
+                                    // Clean single tap -> Tap-to-Focus at exact sensor point
+                                    if (!multiTouch && !moved && tvWPx > 0f && tvHPx > 0f) {
+                                        focusPoint = startPos
+                                        focusState = FocusVisualState.FOCUSING
+                                        focusSeq++
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        val offsetX = (tvWPx - boxWPx) / 2f
+                                        val offsetY = (tvHPx - boxHPx) / 2f
+                                        val normX = ((startPos.x + offsetX) / tvWPx).coerceIn(0f, 1f)
+                                        val normY = ((startPos.y + offsetY) / tvHPx).coerceIn(0f, 1f)
+                                        controller.tapToFocus(normX, normY)
+                                    }
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (scannedResult == null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp)
-                                    .height(2.dp)
-                                    .background(palette.accentPink.copy(alpha = 0.85f))
-                            )
+                        AndroidView(
+                            factory = { ctx ->
+                                TextureView(ctx).also { tv -> textureViewRef = tv }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .requiredSize(tvW, tvH)
+                        )
+
+                        // Corner-bracket QR Target Reticle + animated laser scan line + tap-to-focus box
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val side = minOf(size.width, size.height) * 0.62f
+                            val left = (size.width - side) / 2f
+                            val top = (size.height - side) / 2f
+                            val right = left + side
+                            val bottom = top + side
+                            val corner = side * 0.16f
+                            val reticleColor = if (scannedResult != null) Color(0xFF4AE87A) else palette.accentPink
+                            val strokeW = 3.dp.toPx()
+
+                            // Top-left bracket
+                            drawLine(reticleColor, Offset(left, top), Offset(left + corner, top), strokeW, StrokeCap.Square)
+                            drawLine(reticleColor, Offset(left, top), Offset(left, top + corner), strokeW, StrokeCap.Square)
+                            // Top-right bracket
+                            drawLine(reticleColor, Offset(right - corner, top), Offset(right, top), strokeW, StrokeCap.Square)
+                            drawLine(reticleColor, Offset(right, top), Offset(right, top + corner), strokeW, StrokeCap.Square)
+                            // Bottom-left bracket
+                            drawLine(reticleColor, Offset(left, bottom - corner), Offset(left, bottom), strokeW, StrokeCap.Square)
+                            drawLine(reticleColor, Offset(left, bottom), Offset(left + corner, bottom), strokeW, StrokeCap.Square)
+                            // Bottom-right bracket
+                            drawLine(reticleColor, Offset(right - corner, bottom), Offset(right, bottom), strokeW, StrokeCap.Square)
+                            drawLine(reticleColor, Offset(right, bottom - corner), Offset(right, bottom), strokeW, StrokeCap.Square)
+
+                            // Animated laser line while scanning
+                            if (scannedResult == null) {
+                                val ly = top + side * laserProgress
+                                drawLine(
+                                    color = palette.accentPink.copy(alpha = 0.85f),
+                                    start = Offset(left + 10.dp.toPx(), ly),
+                                    end = Offset(right - 10.dp.toPx(), ly),
+                                    strokeWidth = 2.dp.toPx()
+                                )
+                            }
+
+                            // Tap-to-focus visual square with crosshairs
+                            val fp = focusPoint
+                            if (fp != null) {
+                                val half = 26.dp.toPx()
+                                val tick = 6.dp.toPx()
+                                val fColor = when (focusState) {
+                                    FocusVisualState.LOCKED -> Color(0xFF4AE87A)
+                                    FocusVisualState.FOCUSING -> Color(0xFFFFE57F)
+                                    FocusVisualState.IDLE -> Color.White
+                                }
+                                val fw = 2.dp.toPx()
+                                val fl = fp.x - half
+                                val ft = fp.y - half
+                                val fr = fp.x + half
+                                val fb = fp.y + half
+                                drawLine(fColor, Offset(fl, ft), Offset(fr, ft), fw)
+                                drawLine(fColor, Offset(fr, ft), Offset(fr, fb), fw)
+                                drawLine(fColor, Offset(fr, fb), Offset(fl, fb), fw)
+                                drawLine(fColor, Offset(fl, fb), Offset(fl, ft), fw)
+                                // Inner crosshair ticks
+                                drawLine(fColor, Offset(fp.x, ft), Offset(fp.x, ft + tick), fw)
+                                drawLine(fColor, Offset(fp.x, fb - tick), Offset(fp.x, fb), fw)
+                                drawLine(fColor, Offset(fl, fp.y), Offset(fl + tick, fp.y), fw)
+                                drawLine(fColor, Offset(fr - tick, fp.y), Offset(fr, fp.y), fw)
+                            }
                         }
                     }
                 }
