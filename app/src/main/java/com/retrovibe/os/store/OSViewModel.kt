@@ -104,6 +104,7 @@ class OSViewModel(app: Application) : AndroidViewModel(app) {
             WindowState("status", "System & Updates", x = 18f, y = 56f, width = 326f, height = 370f),
             WindowState("sweeper", "HeartSweeper", x = 14f, y = 36f, width = 344f, height = 470f),
             WindowState("browser", "Internet Voyager - RetroVibe OS", isMaximized = true, x = 10f, y = 20f, width = 356f, height = 500f),
+            WindowState("whatsapp", "WhatsApp 98", isMaximized = true, x = 10f, y = 20f, width = 356f, height = 500f),
             WindowState("qrscanner", "QR Scanner", x = 16f, y = 36f, width = 336f, height = 450f),
             WindowState("mail", "RetroVibe Express - Mail", x = 14f, y = 40f, width = 344f, height = 440f),
             WindowState("calc", "Calculator", x = 36f, y = 70f, width = 292f, height = 314f),

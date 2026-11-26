@@ -1245,6 +1245,51 @@ private val ICONS: Map<String, PixelSpec> = mapOf(
             "................................",
             "................................"
         )
+    ),
+    "whatsapp" to PixelSpec(
+        mapOf(
+            'k' to hex(0xFF101228),
+            'w' to hex(0xFFFFFFFF),
+            'l' to hex(0xFF9AF5B4),
+            'g' to hex(0xFF34D068),
+            'm' to hex(0xFF20A850),
+            'd' to hex(0xFF127538),
+            's' to hex(0xFFD8E4EC)
+        ),
+        listOf(
+            "................................",
+            "................................",
+            "..........kkkkkkkkkkkk..........",
+            "........kkllllllllllllkk........",
+            "......kkllggggggggggggggkk......",
+            ".....kllggggggggggggggggggk.....",
+            "....klggggggggggggggggggggmk....",
+            "...klggggggggggggggggggggggmk...",
+            "...klggggggggggggggggggggggmk...",
+            "..klggggggkkwwwwkgggggggggggmk..",
+            "..klgggggkwwwwwwwkggggggggggmk..",
+            "..klgggggkwwwwwswkggggggggggmk..",
+            "..klgggggkwwwwkgggggggggggggmk..",
+            "..klgggggkwwwwkgggggggggggggmk..",
+            "..klggggggkwwwwkggggggggggggmk..",
+            "..klggggggkwwwwwkgggggggggggmk..",
+            "..klgggggggkkwwwwkggggggggggmk..",
+            "..klgggggggggkwwwwkkkgggggggmk..",
+            "..klggggggggggkkwwwwwkggggggmk..",
+            "..klggggggggggggkwwwwwkgggggmk..",
+            "...klggggggggggggkwwwwkggggmk...",
+            "...kmmggggggggggggksswkgggmmk...",
+            "....kmmggggggggggggkkkgggmmk....",
+            "....kdmgggggggggggggggggmmdk....",
+            "....kdmmgggggggggggggggmmdk.....",
+            "...kddmmmmmmmmmmmmmmmmmmddk.....",
+            "...kddkddddddddddddddddkk.......",
+            "..kddkk....kkkkkkkkkkkk.........",
+            "..kkkk..........................",
+            "................................",
+            "................................",
+            "................................"
+        )
     )
 )
 

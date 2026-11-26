@@ -43,6 +43,8 @@ fun RunDialogWindow(vm: OSViewModel, palette: RetroPalette) {
             "voyager" to "browser",
             "iexplore" to "browser",
             "browser" to "browser",
+            "whatsapp" to "whatsapp",
+            "wa" to "whatsapp",
             "qr" to "qrscanner",
             "qrscanner" to "qrscanner",
             "scanner" to "qrscanner",
