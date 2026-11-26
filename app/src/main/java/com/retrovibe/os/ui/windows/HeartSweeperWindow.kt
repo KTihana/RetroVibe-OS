@@ -87,7 +87,7 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
 
     var diff by remember { mutableStateOf(SweeperDiff.HEART) }
     var flagMode by remember { mutableStateOf(false) }
-    var zoomScale by remember { mutableFloatStateOf(1.25f) } // Comfortable thumb-sized cells by default
+    var zoomScale by remember { mutableFloatStateOf(1.0f) } // 1.0f = fits entire board cleanly inside window
     var gameState by remember { mutableStateOf("ready") } // ready | playing | won | lost
     var timerSec by remember { mutableIntStateOf(0) }
     var board by remember { mutableStateOf<List<List<SweeperCell>>>(emptyList()) }
@@ -285,8 +285,6 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
 
     val flagsUsed = board.flatten().count { it.flagged }
     val minesLeft = diff.mines - flagsUsed
-    val baseCell = if (diff == SweeperDiff.EASY) 32f else 22f
-    val cellSize = (baseCell * zoomScale).coerceIn(18f, 44f).dp
 
     Column(
         modifier = Modifier
@@ -306,19 +304,22 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
                     label = d.label,
                     palette = palette,
                     active = diff == d,
-                    onClick = { reset(d) }
+                    onClick = {
+                        zoomScale = 1.0f
+                        reset(d)
+                    }
                 )
             }
             Spacer(Modifier.weight(1f))
             RetroButton(
                 label = "-",
                 palette = palette,
-                onClick = { zoomScale = (zoomScale - 0.25f).coerceAtLeast(0.75f) }
+                onClick = { zoomScale = (zoomScale - 0.25f).coerceAtLeast(1.0f) }
             )
             RetroButton(
                 label = "+",
                 palette = palette,
-                onClick = { zoomScale = (zoomScale + 0.25f).coerceAtMost(2.0f) }
+                onClick = { zoomScale = (zoomScale + 0.25f).coerceAtMost(2.5f) }
             )
         }
 
@@ -382,8 +383,8 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
 
         Spacer(Modifier.height(5.dp))
 
-        // Scrollable + Zoomable Board
-        Box(
+        // Auto-Fit + Zoomable Board (always fits entire Heart / 9x9 / 16x16 at 1.0x!)
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -391,6 +392,11 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
                 .padding(4.dp),
             contentAlignment = Alignment.Center
         ) {
+            val fitCellW = (maxWidth.value - 4f) / diff.cols
+            val fitCellH = (maxHeight.value - 4f) / diff.rows
+            val fitCell = minOf(fitCellW, fitCellH).coerceIn(12f, 36f)
+            val cellSize = (fitCell * zoomScale).coerceIn(12f, 46f).dp
+
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
@@ -439,7 +445,7 @@ fun HeartSweeperWindow(vm: OSViewModel, palette: RetroPalette) {
                                             text = cell.adj.toString(),
                                             fontFamily = FontFamily.Monospace,
                                             fontWeight = FontWeight.Black,
-                                            fontSize = (cellSize.value * 0.52f).coerceIn(10f, 20f).sp,
+                                            fontSize = (cellSize.value * 0.56f).coerceIn(9f, 20f).sp,
                                             color = NUM_COLORS[cell.adj] ?: Color.Black
                                         )
                                     }
