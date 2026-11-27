@@ -45,6 +45,8 @@ fun RunDialogWindow(vm: OSViewModel, palette: RetroPalette) {
             "browser" to "browser",
             "whatsapp" to "whatsapp",
             "wa" to "whatsapp",
+            "tiktok" to "tiktok",
+            "tt" to "tiktok",
             "qr" to "qrscanner",
             "qrscanner" to "qrscanner",
             "scanner" to "qrscanner",

@@ -372,6 +372,7 @@ fun TerminalWindow(vm: OSViewModel, palette: RetroPalette) {
                     "mail" -> "mail"
                     "voyager", "ie", "browser" -> "browser"
                     "whatsapp", "wa" -> "whatsapp"
+                    "tiktok", "tt" -> "tiktok"
                     "camera", "cam" -> "camera"
                     "qr", "qrscanner", "scanner" -> "qrscanner"
                     "phone", "dialer" -> "phone"

@@ -248,6 +248,7 @@ fun DesktopScreen(vm: OSViewModel) {
         DesktopShortcut("icon-paint", "MS Paint", "paint", "paint"),
         DesktopShortcut("icon-browser", "Internet Voyager", "ie", "browser"),
         DesktopShortcut("icon-whatsapp", "WhatsApp", "whatsapp", "whatsapp"),
+        DesktopShortcut("icon-tiktok", "TikTok", "tiktok", "tiktok"),
         DesktopShortcut("icon-mail", "E-mail", "mail", "mail"),
         DesktopShortcut("icon-recycle", if (vm.trash.isEmpty()) "Recycle Bin" else "Recycle Bin", "recycle", "recycle", badgeCount = vm.trash.size),
         DesktopShortcut("icon-sweeper", "HeartSweeper", "sweeper", "sweeper"),
@@ -516,6 +517,7 @@ fun DesktopScreen(vm: OSViewModel) {
                         win.id == "sweeper" -> "sweeper"
                         win.id == "browser" -> "ie"
                         win.id == "whatsapp" -> "whatsapp"
+                        win.id == "tiktok" -> "tiktok"
                         win.id == "qrscanner" -> "qr"
                         win.id == "mail" -> "mail"
                         win.id == "calc" -> "calc"
@@ -558,6 +560,7 @@ fun DesktopScreen(vm: OSViewModel) {
                             win.id == "sweeper" -> HeartSweeperWindow(vm, theme)
                             win.id == "browser" -> BrowserWindow(vm, theme)
                             win.id == "whatsapp" -> WhatsAppWindow(vm, theme)
+                            win.id == "tiktok" -> TikTokWindow(vm, theme)
                             win.id == "qrscanner" -> QrScannerWindow(vm, theme)
                             win.id == "mail" -> EmailWindow(vm, theme)
                             win.id == "calc" -> CalculatorWindow(vm, theme)
@@ -705,7 +708,8 @@ fun DesktopScreen(vm: OSViewModel) {
                         StartMenuEntry("MS Paint", "paint", "icon-paint") { vm.openWindow("paint") },
                         StartMenuEntry("Calculator", "calc", "icon-calc") { vm.openWindow("calc") },
                         StartMenuEntry("Internet Voyager", "ie", "icon-browser") { vm.openWindow("browser") },
-                        StartMenuEntry("WhatsApp 98", "whatsapp", "icon-whatsapp") { vm.openWindow("whatsapp") },
+                        StartMenuEntry("WhatsApp", "whatsapp", "icon-whatsapp") { vm.openWindow("whatsapp") },
+                        StartMenuEntry("TikTok", "tiktok", "icon-tiktok") { vm.openWindow("tiktok") },
                         StartMenuEntry("QR Scanner", "qr") { vm.openWindow("qrscanner") },
                         StartMenuEntry("E-mail", "mail", "icon-mail") { vm.openWindow("mail") },
                         StartMenuEntry("Music Player", "music", "icon-music") { vm.openWindow("music") },

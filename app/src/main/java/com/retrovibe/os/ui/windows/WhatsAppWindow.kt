@@ -22,17 +22,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.retrovibe.os.audio.RetroSound
+import com.retrovibe.os.audio.RetroSoundEngine
 import com.retrovibe.os.store.OSViewModel
 import com.retrovibe.os.theme.RetroPalette
 import com.retrovibe.os.theme.textDark
 import com.retrovibe.os.ui.BevelBox
-import com.retrovibe.os.ui.RetroButton
+import com.retrovibe.os.ui.PixelIcon
 
 private const val WHATSAPP_DESKTOP_UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -42,6 +48,108 @@ private const val WHATSAPP_WEB_URL = "https://web.whatsapp.com/"
 private fun Color.toCssHex(): String {
     val argb = this.toArgb()
     return String.format("#%06X", 0xFFFFFF and argb)
+}
+
+@Composable
+internal fun Win98MenuItem(
+    text: String,
+    palette: RetroPalette,
+    soundEnabled: Boolean,
+    onClick: () -> Unit
+) {
+    val annotated = remember(text) {
+        buildAnnotatedString {
+            if (text.isNotEmpty()) {
+                withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) {
+                    append(text.first())
+                }
+                append(text.drop(1))
+            }
+        }
+    }
+    Text(
+        text = annotated,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 10.sp,
+        color = palette.textDark,
+        modifier = Modifier
+            .clickable {
+                RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
+                onClick()
+            }
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    )
+}
+
+@Composable
+internal fun Win98IconToolButton(
+    icon: String,
+    label: String,
+    palette: RetroPalette,
+    soundEnabled: Boolean,
+    active: Boolean = false,
+    badge: String? = null,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val bg = if (active) palette.accentSoft else Color.Transparent
+    val topBorder = if (active) palette.borderDark else Color.Transparent
+    val botBorder = if (active) palette.borderLight else Color.Transparent
+    Box(
+        modifier = modifier
+            .background(bg)
+            .then(
+                if (active) {
+                    Modifier.border(1.dp, palette.borderDeep)
+                } else {
+                    Modifier
+                }
+            )
+            .clickable {
+                RetroSoundEngine.play(RetroSound.CLICK, soundEnabled)
+                onClick()
+            }
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Box(contentAlignment = Alignment.TopEnd) {
+                PixelIcon(icon, 20.dp)
+                if (badge != null) {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = 6.dp, y = (-3).dp)
+                            .background(palette.accentPink)
+                            .border(1.dp, palette.borderDeep)
+                            .padding(horizontal = 2.dp)
+                    ) {
+                        Text(
+                            text = badge,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            lineHeight = 8.sp
+                        )
+                    }
+                }
+            }
+            Text(
+                text = label,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 8.5.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                color = palette.textDark,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        // Suppress unused warnings
+        if (topBorder == Color.Transparent && botBorder == Color.Transparent) Unit
+    }
 }
 
 private fun buildWin98WhatsAppJs(
@@ -65,9 +173,9 @@ private fun buildWin98WhatsAppJs(
             --app-background: $bg !important;
             --app-background-deeper: $bg !important;
             --app-background-stripe: $titleA !important;
-            --background-default: $surface !important;
+            --background-default: #FFFFFF !important;
             --background-default-active: $bg !important;
-            --background-default-hover: $bg !important;
+            --background-default-hover: $surface !important;
             --panel-background: $bg !important;
             --panel-background-colored: $titleA !important;
             --panel-background-colored-deeper: $titleB !important;
@@ -75,20 +183,19 @@ private fun buildWin98WhatsAppJs(
             --panel-background-hover: $surface !important;
             --panel-background-lighter: $surface !important;
             --panel-header-background: $bg !important;
-            --conversation-panel-background: $surface !important;
+            --conversation-panel-background: $bg !important;
             --conversation-panel-border: $dark !important;
             --intro-background: $bg !important;
             --intro-border: $accent !important;
             --compose-input-background: #FFFFFF !important;
-            --compose-input-border: $dark !important;
+            --compose-input-border: $deep !important;
             --compose-panel-background: $bg !important;
             --rich-text-panel-background: $bg !important;
             --search-container-background: $bg !important;
             --search-input-background: #FFFFFF !important;
             --search-input-container-background: $bg !important;
-            --outgoing-background: $bg !important;
-            --outgoing-background-deeper: $bg !important;
-            --outgoing-background-rgb: 212, 208, 200 !important;
+            --outgoing-background: $surface !important;
+            --outgoing-background-deeper: $surface !important;
             --incoming-background: #FFFFFF !important;
             --incoming-background-deeper: #FFFFFF !important;
             --system-message-background: $bg !important;
@@ -98,7 +205,7 @@ private fun buildWin98WhatsAppJs(
             --primary-stronger: $text !important;
             --primary-title: $text !important;
             --secondary: #444444 !important;
-            --secondary-stronger: #333333 !important;
+            --secondary-stronger: #222222 !important;
             --message-primary: $text !important;
             --bubble-meta: #555555 !important;
             --border-list: $dark !important;
@@ -114,7 +221,7 @@ private fun buildWin98WhatsAppJs(
             --icon: $text !important;
             --icon-lighter: #555555 !important;
             --icon-strong: $text !important;
-            --WDS-surface-default: $surface !important;
+            --WDS-surface-default: #FFFFFF !important;
             --WDS-surface-subtle: $bg !important;
             --WDS-surface-elevated-default: $bg !important;
             --WDS-content-default: $text !important;
@@ -129,22 +236,15 @@ private fun buildWin98WhatsAppJs(
             background: $bg !important;
             color: $text !important;
         }
-        /* Square retro Win98 corners everywhere */
-        #app div, #app button, #app input, #app header, #app footer, #app section {
+        /* Classic square Win98 geometry everywhere */
+        #app div, #app button, #app input, #app header, #app footer, #app section, #app img {
             border-radius: 0px !important;
         }
-        /* Keep user avatars subtly framed in a Win98 square */
-        #app img {
-            border-radius: 0px !important;
-        }
-        /* Classic Win98 raised header bars */
+        /* Raised Win98 header bar */
         #app header {
-            background: linear-gradient(90deg, $titleA, $titleB) !important;
+            background: $bg !important;
             border-bottom: 2px solid $deep !important;
             box-shadow: inset 1px 1px 0 $light, inset -1px -1px 0 $dark !important;
-        }
-        #app header span, #app header [role="button"], #app header svg {
-            color: #FFFFFF !important;
         }
         /* Sunken Win98 input fields */
         #app [contenteditable="true"], #app input[type="text"], #app input[type="tel"] {
@@ -153,35 +253,32 @@ private fun buildWin98WhatsAppJs(
             border: 1px solid $deep !important;
             box-shadow: inset 1px 1px 0 $dark, inset -1px -1px 0 $light !important;
         }
-        /* Raised Win98 buttons */
-        #app button, #app [role="button"] {
-            border-radius: 0px !important;
-        }
+        /* Classic Win98 footer compose bar */
         #app footer {
             background: $bg !important;
             border-top: 2px solid $light !important;
             box-shadow: inset 0 1px 0 $light !important;
         }
-        /* Classic beveled chat bubbles */
+        /* Classic Win98 3D beveled chat bubbles with crisp pixel drop shadow */
         #main .message-in > div, #main .message-out > div {
             border: 1px solid $deep !important;
-            box-shadow: inset 1px 1px 0 $light, inset -1px -1px 0 $dark, 2px 2px 0 rgba(0,0,0,0.16) !important;
-        }
-        #main .message-out > div {
-            background: $bg !important;
+            box-shadow: inset 1px 1px 0 $light, inset -1px -1px 0 $dark, 2px 2px 0 rgba(0,0,0,0.22) !important;
         }
         #main .message-in > div {
             background: #FFFFFF !important;
         }
-        /* Hide heavy decorative doodle wallpaper so Win98 surface stays crisp */
-        [data-asset-chat-background-light], [data-asset-chat-background-dark] {
-            opacity: 0.08 !important;
+        #main .message-out > div {
+            background: $surface !important;
         }
-        /* Retro scrollbars */
+        /* Hide modern doodle wallpaper so Win98 chat pane stays clean */
+        [data-asset-chat-background-light], [data-asset-chat-background-dark] {
+            opacity: 0.04 !important;
+        }
+        /* Chunky Win98 scrollbars */
         ::-webkit-scrollbar {
-            width: 12px !important;
-            height: 12px !important;
-            background: $bg !important;
+            width: 14px !important;
+            height: 14px !important;
+            background: $surface !important;
         }
         ::-webkit-scrollbar-thumb {
             background: $bg !important;
@@ -192,7 +289,6 @@ private fun buildWin98WhatsAppJs(
 
     val phoneCss = if (phoneLayout) {
         val paneRules = if (showChatListPane) """
-            /* Phone mode: show chat list full-width when logged in */
             body.rv-logged-in #main {
                 display: none !important;
             }
@@ -203,7 +299,6 @@ private fun buildWin98WhatsAppJs(
                 flex: 1 1 100% !important;
             }
         """.trimIndent() else """
-            /* Phone mode: show active chat full-width when logged in */
             body.rv-logged-in #side {
                 display: none !important;
             }
@@ -272,7 +367,6 @@ private fun buildWin98WhatsAppJs(
                     });
                     obs.observe(document.documentElement, { childList: true, subtree: true });
 
-                    // Auto-switch to active chat view when user taps a chat row in #pane-side
                     document.addEventListener('click', function(e) {
                         try {
                             var side = document.getElementById('pane-side');
@@ -296,8 +390,8 @@ fun WhatsAppWindow(vm: OSViewModel, palette: RetroPalette) {
     var win98Skin by remember { mutableStateOf(true) }
     var phoneLayout by remember { mutableStateOf(true) }
     var showChatListPane by remember { mutableStateOf(true) }
-    var showLinkHelp by remember { mutableStateOf(true) }
-    var statusText by remember { mutableStateOf("Connecting to WhatsApp Web...") }
+    var showLinkHelp by remember { mutableStateOf(false) }
+    var statusText by remember { mutableStateOf("WhatsApp | Connecting...") }
     var loadProgress by remember { mutableStateOf(0) }
     var pendingFileCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
 
@@ -332,101 +426,143 @@ fun WhatsAppWindow(vm: OSViewModel, palette: RetroPalette) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(palette.windowBg)
-            .padding(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .background(palette.windowBg),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        // Classic Win98 Toolbar
-        BevelBox(theme = palette, raised = true, modifier = Modifier.fillMaxWidth()) {
+        // Classic Win98 Menu Bar: File  Edit  View  Tools  Help
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(palette.windowBg)
+                .padding(horizontal = 2.dp, vertical = 1.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Win98MenuItem("File", palette, vm.soundEnabled) {
+                statusText = "WhatsApp | Reloading..."
+                webViewRef?.reload()
+            }
+            Win98MenuItem("Edit", palette, vm.soundEnabled) {
+                webViewRef?.evaluateJavascript(
+                    "document.querySelector('[contenteditable=\"true\"]')?.focus();",
+                    null
+                )
+            }
+            Win98MenuItem("View", palette, vm.soundEnabled) {
+                phoneLayout = !phoneLayout
+                statusText = if (phoneLayout) "WhatsApp | Phone View" else "WhatsApp | Desktop View"
+            }
+            Win98MenuItem("Tools", palette, vm.soundEnabled) {
+                win98Skin = !win98Skin
+                statusText = if (win98Skin) "WhatsApp | Win98 Skin ON" else "WhatsApp | Win98 Skin OFF"
+            }
+            Win98MenuItem("Help", palette, vm.soundEnabled) {
+                showLinkHelp = !showLinkHelp
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderDark))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderLight))
+
+        // Classic Win98 Icon Toolbar (New Chat | Chats | Search | Skin)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(palette.windowBg)
+                .padding(horizontal = 4.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Win98IconToolButton(
+                icon = "tbChat",
+                label = if (phoneLayout && !showChatListPane) "< Chats" else "Chats",
+                palette = palette,
+                soundEnabled = vm.soundEnabled,
+                active = phoneLayout && showChatListPane,
+                onClick = {
+                    if (phoneLayout) {
+                        showChatListPane = !showChatListPane
+                    } else {
+                        phoneLayout = true
+                        showChatListPane = true
+                    }
+                }
+            )
+            Win98IconToolButton(
+                icon = "tbNewChat",
+                label = "New Chat",
+                palette = palette,
+                soundEnabled = vm.soundEnabled,
+                onClick = {
+                    showChatListPane = true
+                    webViewRef?.evaluateJavascript(
+                        "(document.querySelector('[data-icon=\"new-chat-outline\"]') || document.querySelector('[aria-label*=\"New chat\"]'))?.click();",
+                        null
+                    )
+                }
+            )
+            Win98IconToolButton(
+                icon = "tbSearch",
+                label = "Search",
+                palette = palette,
+                soundEnabled = vm.soundEnabled,
+                onClick = {
+                    showChatListPane = true
+                    webViewRef?.evaluateJavascript(
+                        "(document.querySelector('#side [contenteditable=\"true\"]') || document.querySelector('input[type=\"text\"]'))?.focus();",
+                        null
+                    )
+                }
+            )
+            Win98IconToolButton(
+                icon = "tbSettings",
+                label = if (win98Skin) "98 Skin" else "Classic",
+                palette = palette,
+                soundEnabled = vm.soundEnabled,
+                active = win98Skin,
+                onClick = { win98Skin = !win98Skin }
+            )
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderDark))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderLight))
+
+        // Optional Login Help Tip (toggled via Help menu)
+        if (showLinkHelp) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 3.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 4.dp, vertical = 3.dp)
+                    .background(palette.windowSurface)
+                    .border(1.dp, palette.borderDeep)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (phoneLayout) {
-                    RetroButton(
-                        label = if (showChatListPane) "Chat >" else "< Chats",
-                        theme = palette,
-                        soundEnabled = vm.soundEnabled,
-                        active = !showChatListPane,
-                        onClick = { showChatListPane = !showChatListPane }
-                    )
-                }
-                RetroButton(
-                    label = if (win98Skin) "98 Skin: ON" else "98 Skin: OFF",
-                    theme = palette,
-                    soundEnabled = vm.soundEnabled,
-                    active = win98Skin,
-                    onClick = { win98Skin = !win98Skin }
+                Text(
+                    text = "Tip: Tap \"Log in with phone number\" to link WhatsApp on this same phone (8-digit code). Login stays saved!",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    lineHeight = 12.sp,
+                    color = palette.textDark,
+                    modifier = Modifier.weight(1f)
                 )
-                RetroButton(
-                    label = if (phoneLayout) "Phone" else "Desktop",
-                    theme = palette,
-                    soundEnabled = vm.soundEnabled,
-                    onClick = { phoneLayout = !phoneLayout }
-                )
-                Spacer(Modifier.weight(1f))
-                RetroButton(
-                    label = "R",
-                    theme = palette,
-                    soundEnabled = vm.soundEnabled,
-                    onClick = {
-                        statusText = "Reloading WhatsApp Web..."
-                        webViewRef?.reload()
-                    }
-                )
-                RetroButton(
-                    label = "?",
-                    theme = palette,
-                    soundEnabled = vm.soundEnabled,
-                    active = showLinkHelp,
-                    onClick = { showLinkHelp = !showLinkHelp }
+                Text(
+                    text = "[x]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textDark,
+                    modifier = Modifier.clickable { showLinkHelp = false }
                 )
             }
         }
 
-        // Helpful Win98 tip for logging in on the same phone
-        if (showLinkHelp) {
-            BevelBox(theme = palette, raised = false, modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(palette.windowSurface)
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "Tip: Tap \"Log in with phone number\" below to link WhatsApp on this same phone (8-digit code). Login stays saved!",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 9.sp,
-                        lineHeight = 12.sp,
-                        color = palette.textDark,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "[x]",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = palette.textDark,
-                        modifier = Modifier
-                            .clickable { showLinkHelp = false }
-                            .padding(2.dp)
-                    )
-                }
-            }
-        }
-
-        // Main WhatsApp Web Viewport inside sunken Win98 frame
+        // Main WhatsApp Web Viewport inside sunken Win98 bevel
         BevelBox(
             theme = palette,
             raised = false,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 3.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -489,9 +625,8 @@ fun WhatsAppWindow(vm: OSViewModel, palette: RetroPalette) {
 
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     super.onPageFinished(view, url)
-                                    statusText = "WhatsApp 98 Connected"
+                                    statusText = "WhatsApp | Online"
                                     applyThemeAndLayout(view)
-                                    // Re-apply shortly after React finishes hydrating
                                     view?.postDelayed({ applyThemeAndLayout(view) }, 1200L)
                                     view?.postDelayed({ applyThemeAndLayout(view) }, 3000L)
                                 }
@@ -501,7 +636,7 @@ fun WhatsAppWindow(vm: OSViewModel, palette: RetroPalette) {
                                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                                     loadProgress = newProgress
                                     if (newProgress in 1..99) {
-                                        statusText = "Loading WhatsApp Web... $newProgress%"
+                                        statusText = "WhatsApp | Loading $newProgress%..."
                                     }
                                 }
 
@@ -535,7 +670,13 @@ fun WhatsAppWindow(vm: OSViewModel, palette: RetroPalette) {
         }
 
         // Classic Win98 Status Bar
-        BevelBox(theme = palette, raised = false, modifier = Modifier.fillMaxWidth()) {
+        BevelBox(
+            theme = palette,
+            raised = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 3.dp)
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -555,7 +696,7 @@ fun WhatsAppWindow(vm: OSViewModel, palette: RetroPalette) {
                 if (loadProgress in 1..99) {
                     Box(
                         modifier = Modifier
-                            .width(64.dp)
+                            .width(56.dp)
                             .height(8.dp)
                             .border(1.dp, palette.borderDeep)
                             .background(palette.windowSurface)
@@ -567,6 +708,14 @@ fun WhatsAppWindow(vm: OSViewModel, palette: RetroPalette) {
                                 .background(palette.accentPink)
                         )
                     }
+                } else {
+                    Text(
+                        text = if (phoneLayout) "Phone" else "Desktop",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 8.5.sp,
+                        color = palette.textSecondary,
+                        modifier = Modifier.clickable { phoneLayout = !phoneLayout }
+                    )
                 }
             }
         }
